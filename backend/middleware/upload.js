@@ -1,0 +1,62 @@
+const multer = require('multer');
+const sharp = require('sharp');
+const path = require('path');
+const fs = require('fs');
+
+// Memastikan folder uploads ada
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Memory Storage untuk diproses oleh Sharp
+const storage = multer.memoryStorage();
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Format file tidak didukung. Harap unggah Gambar (JPG/PNG) atau PDF.'), false);
+  }
+};
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Maksimal 5MB
+  fileFilter,
+});
+
+// Auto-resize gambar menjadi WebP sesuai Acceptance Criteria PRD
+const processImage = async (req, res, next) => {
+  if (!req.file) return next();
+
+  // Jika file adalah PDF, simpan langsung
+  if (req.file.mimetype === 'application/pdf') {
+    const filename = `doc-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
+    const outputPath = path.join(uploadDir, filename);
+    fs.writeFileSync(outputPath, req.file.buffer);
+    req.file.filename = filename;
+    req.file.fileUrl = `/uploads/${filename}`;
+    return next();
+  }
+
+  // Jika Gambar: Optimasi & Resize
+  try {
+    const filename = `img-${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
+    const outputPath = path.join(uploadDir, filename);
+
+    await sharp(req.file.buffer)
+      .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toFile(outputPath);
+
+    req.file.filename = filename;
+    req.file.fileUrl = `/uploads/${filename}`;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { upload, processImage };
