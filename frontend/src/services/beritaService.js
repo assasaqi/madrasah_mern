@@ -49,7 +49,7 @@ export const beritaService = {
 
   /**
    * Membuat artikel berita baru (Mendukung upload gambar Multipart/Form-Data)
-   * @param {Object} formDataPayload - Object berisi judul, konten, kategoriId, isPublished, dan imageFile
+   * @param {Object} formDataPayload - Object berisi judul, konten, kategoriId, isPublished, dan imageFile/gambar
    * @returns {Promise<Object>} Respon pembuatan berita
    */
   createBerita: async (formDataPayload) => {
@@ -63,9 +63,9 @@ export const beritaService = {
         data.append('kategoriId', formDataPayload.kategoriId);
       }
 
-      if (formDataPayload.imageFile) {
-        // Nama field 'gambar' disesuaikan dengan upload.single('gambar') di backend
-        data.append('gambar', formDataPayload.imageFile);
+      const fileToUpload = formDataPayload.imageFile || formDataPayload.gambar;
+      if (fileToUpload instanceof File) {
+        data.append('gambar', fileToUpload);
       }
 
       const response = await api.post('/admin/cms/berita', data, {
@@ -80,8 +80,41 @@ export const beritaService = {
   },
 
   /**
-   * Menghapus artikel berita berdasarkan UUID
-   * @param {string} id - UUID Berita
+   * Memperbarui/Edit artikel berita (Mendukung upload gambar Multipart/Form-Data)
+   * @param {string|number} id - ID Berita
+   * @param {Object} formDataPayload - Object berisi judul, konten, kategoriId, isPublished, dan imageFile/gambar
+   * @returns {Promise<Object>} Respon pembaruan berita
+   */
+  updateBerita: async (id, formDataPayload) => {
+    try {
+      const data = new FormData();
+      if (formDataPayload.judul !== undefined) data.append('judul', formDataPayload.judul || '');
+      if (formDataPayload.konten !== undefined) data.append('konten', formDataPayload.konten || '');
+      if (formDataPayload.isPublished !== undefined) data.append('isPublished', formDataPayload.isPublished);
+
+      if (formDataPayload.kategoriId) {
+        data.append('kategoriId', formDataPayload.kategoriId);
+      }
+
+      const fileToUpload = formDataPayload.imageFile || formDataPayload.gambar;
+      if (fileToUpload instanceof File) {
+        data.append('gambar', fileToUpload);
+      }
+
+      const response = await api.put(`/admin/cms/berita/${id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      return response?.data !== undefined ? response.data : response;
+    } catch (error) {
+      console.error('Error [beritaService.updateBerita]:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Menghapus artikel berita berdasarkan ID / UUID
+   * @param {string|number} id - ID Berita
    * @returns {Promise<Object>} Respon penghapusan berita
    */
   deleteBerita: async (id) => {

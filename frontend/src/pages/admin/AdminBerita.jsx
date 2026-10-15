@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  FileText, Plus, Search, Trash2,
-  Loader2, X, RefreshCw, AlertCircle
+  FileText, Plus, Search, Trash2, Edit2,
+  Loader2, X, RefreshCw, AlertCircle, CheckCircle, Image as ImageIcon
 } from 'lucide-react';
 import { beritaService } from '../../services/beritaService';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function AdminBerita() {
   const [beritaList, setBeritaList] = useState([]);
@@ -14,7 +16,13 @@ export default function AdminBerita() {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // State Form Tambah Berita (Presisi dengan Prisma Schema & Controller)
+  // State untuk Mode Edit
+  const [editingItem, setEditingItem] = useState(null);
+
+  // State Notifikasi Modal (Khusus untuk error dari Backend)
+  const [modalAlert, setModalAlert] = useState({ type: '', message: '' });
+
+  // State Form Berita
   const [formData, setFormData] = useState({
     judul: '',
     kategoriId: '',
@@ -22,6 +30,7 @@ export default function AdminBerita() {
     isPublished: true,
   });
   const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     fetchBerita();
@@ -47,10 +56,72 @@ export default function AdminBerita() {
   const fetchKategori = async () => {
     try {
       const data = await beritaService.getKategoriList();
-      setKategoriList(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+
+      if (list.length === 0) {
+        setKategoriList([
+          { id: '1', nama: 'Pendidikan & Akademik' },
+          { id: '2', nama: 'Kegiatan Madrasah' },
+          { id: '3', nama: 'Prestasi' },
+          { id: '4', nama: 'Pengumuman' }
+        ]);
+      } else {
+        setKategoriList(list);
+      }
     } catch (err) {
       console.error('Gagal memuat kategori berita:', err);
+      setKategoriList([
+        { id: '1', nama: 'Pendidikan & Akademik' },
+        { id: '2', nama: 'Kegiatan Madrasah' },
+        { id: '3', nama: 'Prestasi' },
+        { id: '4', nama: 'Pengumuman' }
+      ]);
     }
+  };
+
+  // Membuka Modal (Mode Tambah Baru atau Edit)
+  const handleOpenModal = (item = null) => {
+    setModalAlert({ type: '', message: '' });
+    if (item) {
+      // Mode Edit
+      setEditingItem(item);
+      setFormData({
+        judul: item.judul || item.title || '',
+        kategoriId: item.kategoriId || item.kategori?.id || '',
+        konten: item.konten || item.content || '',
+        isPublished: item.isPublished ?? item.published ?? true,
+      });
+      const rawGambar = item.gambar || item.imageUrl;
+      if (rawGambar) {
+        const url = rawGambar.startsWith('http')
+          ? rawGambar
+          : `${API_BASE_URL}/uploads/${rawGambar.replace(/^\/uploads\//, '')}`;
+        setImagePreview(url);
+      } else {
+        setImagePreview(null);
+      }
+    } else {
+      // Mode Tambah Baru
+      setEditingItem(null);
+      setFormData({
+        judul: '',
+        kategoriId: kategoriList.length > 0 ? (kategoriList[0].id || kategoriList[0]._id) : '',
+        konten: '',
+        isPublished: true,
+      });
+      setImagePreview(null);
+    }
+    setImageFile(null);
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingItem(null);
+    setFormData({ judul: '', kategoriId: '', konten: '', isPublished: true });
+    setImageFile(null);
+    setImagePreview(null);
+    setModalAlert({ type: '', message: '' });
   };
 
   const handleInputChange = (e) => {
@@ -59,29 +130,61 @@ export default function AdminBerita() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    if (modalAlert.message) setModalAlert({ type: '', message: '' });
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setModalAlert({ type: '', message: '' });
+
+    // Validasi Frontend: Panjang Judul Maksimal 200 Karakter
+    if (formData.judul.trim().length > 200) {
+      setModalAlert({
+        type: 'error',
+        message: `Judul berita terlalu panjang (${formData.judul.trim().length} karakter). Maksimal 200 karakter.`
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
-      await beritaService.createBerita({
+
+      const payload = {
         judul: formData.judul,
         konten: formData.konten,
         kategoriId: formData.kategoriId,
         isPublished: formData.isPublished,
-        imageFile: imageFile
-      });
+        imageFile: imageFile,
+        gambar: imageFile
+      };
 
-      alert('Berita berhasil ditambahkan!');
-      setShowModal(false);
-      setFormData({ judul: '', kategoriId: '', konten: '', isPublished: true });
-      setImageFile(null);
+      if (editingItem) {
+        // Panggil endpoint update berita
+        await beritaService.updateBerita(editingItem.id, payload);
+        alert('Berita berhasil diperbarui!');
+      } else {
+        // Panggil endpoint buat berita baru
+        await beritaService.createBerita(payload);
+        alert('Berita berhasil ditambahkan!');
+      }
+
+      handleCloseModal();
       fetchBerita();
     } catch (err) {
       console.error('Gagal menyimpan berita:', err);
-      const errorText = err?.response?.data?.message || err?.message || 'Gagal menambah berita. Periksa koneksi atau inputan Anda.';
-      alert(`Error: ${errorText}`);
+      const serverMessage = err?.response?.data?.message || err?.message || 'Gagal menyimpan berita. Periksa koneksi atau inputan Anda.';
+      setModalAlert({
+        type: 'error',
+        message: serverMessage
+      });
     } finally {
       setSubmitting(false);
     }
@@ -98,13 +201,12 @@ export default function AdminBerita() {
     }
   };
 
-  // Helper pencarian aman & fleksibel
   const filteredBerita = (Array.isArray(beritaList) ? beritaList : []).filter((item) => {
     const q = (searchQuery || '').toLowerCase().trim();
     if (!q) return true;
 
     const judul = String(item?.judul || item?.title || '').toLowerCase();
-    const katNama = String(item?.kategori?.nama || item?.category || '').toLowerCase();
+    const katNama = String(item?.kategori?.nama || item?.kategori?.name || item?.category || '').toLowerCase();
     const konten = String(item?.konten || item?.content || '').toLowerCase();
 
     return judul.includes(q) || katNama.includes(q) || konten.includes(q);
@@ -140,7 +242,7 @@ export default function AdminBerita() {
             <RefreshCw size={14} /> Refresh
           </button>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => handleOpenModal(null)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-emerald-200 cursor-pointer"
           >
             <Plus size={16} /> Buat Artikel Baru
@@ -148,7 +250,7 @@ export default function AdminBerita() {
         </div>
       </div>
 
-      {/* Banner Error */}
+      {/* Banner Error Utama */}
       {errorMsg && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-between text-xs text-red-700">
           <div className="flex items-center gap-2">
@@ -197,7 +299,7 @@ export default function AdminBerita() {
                   const id = item.id || idx;
                   const rawGambar = item.gambar || item.imageUrl;
                   const gambarUrl = rawGambar
-                    ? (rawGambar.startsWith('http') ? rawGambar : `http://localhost:5000/uploads/${rawGambar.replace(/^\/uploads\//, '')}`)
+                    ? (rawGambar.startsWith('http') ? rawGambar : `${API_BASE_URL}/uploads/${rawGambar.replace(/^\/uploads\//, '')}`)
                     : 'https://via.placeholder.com/150';
 
                   const isTerbit = item.isPublished ?? item.published ?? true;
@@ -220,7 +322,7 @@ export default function AdminBerita() {
                       </td>
                       <td className="py-3 px-6">
                         <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-[11px] font-semibold">
-                          {item.kategori?.nama || item.category || 'Umum'}
+                          {item.kategori?.nama || item.kategori?.name || item.category || 'Umum'}
                         </span>
                       </td>
                       <td className="py-3 px-6">
@@ -231,13 +333,22 @@ export default function AdminBerita() {
                         </span>
                       </td>
                       <td className="py-3 px-6 text-center">
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer"
-                          title="Hapus Berita"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleOpenModal(item)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition cursor-pointer"
+                            title="Edit Berita"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                            title="Hapus Berita"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -255,23 +366,55 @@ export default function AdminBerita() {
         </div>
       </div>
 
-      {/* Modal Form Tambah Berita */}
+      {/* Modal Form Buat / Edit Berita */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-2xl w-full rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="font-bold text-base text-gray-900">Buat Berita Baru</h3>
+              <h3 className="font-bold text-base text-gray-900">
+                {editingItem ? 'Edit Berita & Artikel' : 'Buat Berita Baru'}
+              </h3>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={handleCloseModal}
                 className="text-gray-400 hover:text-gray-600 font-bold p-1 rounded-lg hover:bg-gray-100 transition cursor-pointer"
               >
                 <X size={20} />
               </button>
             </div>
 
+            {/* Banner Alert Modal */}
+            {modalAlert.message && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs font-semibold flex items-start gap-2.5 ${
+                  modalAlert.type === 'error'
+                    ? 'bg-red-50 text-red-800 border-red-200'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                }`}
+              >
+                {modalAlert.type === 'error' ? (
+                  <AlertCircle size={18} className="shrink-0 text-red-600 mt-0.5" />
+                ) : (
+                  <CheckCircle size={18} className="shrink-0 text-emerald-600 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <p className="font-bold">{modalAlert.type === 'error' ? 'Peringatan Validasi:' : 'Sukses:'}</p>
+                  <p className="mt-0.5 font-normal leading-relaxed">{modalAlert.message}</p>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-gray-700 mb-1">Judul Berita</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-gray-700">Judul Berita *</label>
+                  <span
+                    className={`text-[11px] font-medium ${
+                      formData.judul.length > 200 ? 'text-red-600 font-bold' : 'text-gray-400'
+                    }`}
+                  >
+                    {formData.judul.length}/200 Karakter
+                  </span>
+                </div>
                 <input
                   type="text"
                   name="judul"
@@ -279,23 +422,33 @@ export default function AdminBerita() {
                   value={formData.judul}
                   onChange={handleInputChange}
                   placeholder="Contoh: Siswa Madrasah Meraih Juara 1 OSN 2026"
-                  className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                  className={`w-full px-3.5 py-2 border rounded-xl focus:ring-2 outline-none transition ${
+                    formData.judul.length > 200
+                      ? 'border-red-500 focus:ring-red-500 bg-red-50/20'
+                      : 'border-gray-200 focus:ring-emerald-500'
+                  }`}
                 />
+                {formData.judul.length > 200 && (
+                  <p className="text-[10px] text-red-600 font-medium mt-1">
+                    Judul melebihi batas maksimal 200 karakter!
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Kategori</label>
+                  <label className="block font-semibold text-gray-700 mb-1">Kategori *</label>
                   <select
                     name="kategoriId"
+                    required
                     value={formData.kategoriId}
                     onChange={handleInputChange}
                     className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
                   >
                     <option value="">-- Pilih Kategori --</option>
                     {kategoriList.map((kat) => (
-                      <option key={kat.id} value={kat.id}>
-                        {kat.nama}
+                      <option key={kat.id || kat._id} value={kat.id || kat._id}>
+                        {kat.nama || kat.name || kat.title || 'Kategori Tanpa Nama'}
                       </option>
                     ))}
                   </select>
@@ -305,14 +458,29 @@ export default function AdminBerita() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => setImageFile(e.target.files[0])}
+                    onChange={handleFileChange}
                     className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
                   />
                 </div>
               </div>
 
+              {/* Preview Gambar */}
+              {imagePreview && (
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                  <div className="w-16 h-12 rounded-xl overflow-hidden bg-gray-200 border border-gray-200 shrink-0">
+                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    <p className="font-semibold text-gray-700">
+                      {imageFile ? 'Gambar baru siap diunggah' : 'Gambar saat ini'}
+                    </p>
+                    <p className="text-[10px] text-gray-400">Pilih berkas baru jika ingin mengganti gambar di atas.</p>
+                  </div>
+                </div>
+              )}
+
               <div>
-                <label className="block font-semibold text-gray-700 mb-1">Isi Artikel Lengkap</label>
+                <label className="block font-semibold text-gray-700 mb-1">Isi Artikel Lengkap *</label>
                 <textarea
                   name="konten"
                   rows={6}
@@ -331,7 +499,7 @@ export default function AdminBerita() {
                   name="isPublished"
                   checked={formData.isPublished}
                   onChange={handleInputChange}
-                  className="rounded text-emerald-600 focus:ring-emerald-500"
+                  className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                 />
                 <label htmlFor="isPublished" className="font-semibold text-gray-700 cursor-pointer">
                   Langsung Terbitkan ke Portal Publik
@@ -341,17 +509,18 @@ export default function AdminBerita() {
               <div className="flex items-center justify-end gap-3 pt-4 border-t">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCloseModal}
                   className="px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || formData.judul.length > 200}
                   className="px-5 py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
-                  {submitting && <Loader2 className="animate-spin" size={14} />} Simpan Berita
+                  {submitting && <Loader2 className="animate-spin" size={14} />}
+                  {editingItem ? 'Simpan Perubahan' : 'Simpan Berita'}
                 </button>
               </div>
             </form>

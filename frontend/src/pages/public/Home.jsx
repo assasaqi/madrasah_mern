@@ -70,7 +70,7 @@ export default function Home() {
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       return imagePath;
     }
-    const cleanPath = imagePath.startsWith('/') ? imagePath : `/uploads/${imagePath}`;
+    const cleanPath = imagePath.startsWith('/') ? imagePath : `/uploads/${imagePath.replace(/^\/uploads\//, '')}`;
     return `${API_BASE_URL}${cleanPath}`;
   };
 
@@ -245,42 +245,51 @@ export default function Home() {
           <div className="text-center py-12 text-gray-500 text-sm">Belum ada artikel berita yang dipublikasikan.</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {latestNews.slice(0, 3).map((news) => (
-              <article
-                key={news.id}
-                className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col"
-              >
-                <div className="relative h-48 overflow-hidden">
-                  <img
-                    src={getImageUrl(news.gambar || news.image)}
-                    alt={news.judul || news.title}
-                    className="w-full h-full object-cover hover:scale-105 transition duration-300"
-                  />
-                  <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow">
-                    {news.kategori?.nama || news.category || 'Berita'}
-                  </span>
-                </div>
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-                  <div>
-                    <span className="text-xs text-gray-400 font-medium">
-                      {formatDate(news.createdAt || news.date)}
+            {latestNews.slice(0, 3).map((news) => {
+              const targetSlugOrId = news.slug || news.id;
+              const targetPath = `/berita/${targetSlugOrId}`;
+
+              return (
+                <article
+                  key={news.id}
+                  className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col group"
+                >
+                  <Link to={targetPath} className="relative h-48 overflow-hidden block">
+                    <img
+                      src={getImageUrl(news.gambar || news.image)}
+                      alt={news.judul || news.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                    />
+                    <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow">
+                      {news.kategori?.nama || news.category || 'Berita'}
                     </span>
-                    <h3 className="font-bold text-gray-900 text-base mt-1 line-clamp-2 hover:text-emerald-600 cursor-pointer transition">
-                      {news.judul || news.title}
-                    </h3>
-                    <p className="text-xs text-gray-600 mt-2 line-clamp-3 leading-relaxed">
-                      {news.konten ? news.konten.replace(/<[^>]+>/g, '').substring(0, 110) + '...' : news.excerpt}
-                    </p>
-                  </div>
-                  <Link
-                    to={`/berita/${news.slug || news.id}`}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition pt-2"
-                  >
-                    Baca Selengkapnya <ArrowRight size={12} />
                   </Link>
-                </div>
-              </article>
-            ))}
+
+                  <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-xs text-gray-400 font-medium">
+                        {formatDate(news.createdAt || news.date)}
+                      </span>
+                      <h3 className="font-bold text-gray-900 text-base mt-1 line-clamp-2 group-hover:text-emerald-600 transition">
+                        <Link to={targetPath}>
+                          {news.judul || news.title}
+                        </Link>
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-2 line-clamp-3 leading-relaxed">
+                        {news.konten ? news.konten.replace(/<[^>]+>/g, '').substring(0, 110) + '...' : news.excerpt}
+                      </p>
+                    </div>
+
+                    <Link
+                      to={targetPath}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition pt-2"
+                    >
+                      Baca Selengkapnya <ArrowRight size={12} />
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

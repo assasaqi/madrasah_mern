@@ -3,7 +3,6 @@ const prisma = require('../config/prisma');
 // Get Data Ringkasan untuk Beranda Publik
 exports.getHomeData = async (req, res, next) => {
   try {
-    // Ambil 3 berita publik terbaru (Gunakan isPublished)
     const latestNews = await prisma.berita.findMany({
       where: { isPublished: true },
       take: 3,
@@ -15,7 +14,6 @@ exports.getHomeData = async (req, res, next) => {
       },
     });
 
-    // Ambil 3 pengumuman terbaru (Gunakan isPublished)
     const announcementsRaw = await prisma.pengumuman.findMany({
       where: { isPublished: true },
       take: 3,
@@ -27,7 +25,6 @@ exports.getHomeData = async (req, res, next) => {
       },
     });
 
-    // Hitung statistik dinamis
     const totalSiswa = await prisma.siswa.count();
     const totalGuru = await prisma.guru.count();
 
@@ -100,15 +97,25 @@ exports.getBerita = async (req, res, next) => {
   }
 };
 
-// Get Detail Artikel Berita
+// Get Detail Artikel Berita (Mendukung Pencarian ID maupun SLUG)
 exports.getBeritaDetail = async (req, res, next) => {
   try {
     const { id } = req.params;
+
     const berita = await prisma.berita.findFirst({
-      where: { id, isPublished: true },
+      where: {
+        isPublished: true,
+        OR: [
+          { slug: id },
+          { id: id }
+        ]
+      },
       include: {
         kategori: {
           select: { id: true, nama: true },
+        },
+        author: {
+          select: { id: true, email: true },
         },
       },
     });
@@ -120,6 +127,20 @@ exports.getBeritaDetail = async (req, res, next) => {
     res.json(berita);
   } catch (error) {
     console.error('Error getBeritaDetail:', error);
+    next(error);
+  }
+};
+
+// Get Seluruh Kategori Berita Publik
+exports.getKategori = async (req, res, next) => {
+  try {
+    const kategori = await prisma.kategoriBerita.findMany({
+      orderBy: { nama: 'asc' },
+    });
+
+    res.json(kategori);
+  } catch (error) {
+    console.error('Error getKategori:', error);
     next(error);
   }
 };

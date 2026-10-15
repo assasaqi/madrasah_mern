@@ -54,4 +54,20 @@ const processImage = async (req, res, next) => {
   }
 };
 
-module.exports = { upload, processImage };
+// 🟢 HELPER: Menghapus File Fisik di Folder Uploads
+const deleteFile = (filename) => {
+  if (!filename) return;
+  // Bersihkan path jika ada prefix /uploads/
+  const cleanFilename = filename.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
+  const filePath = path.join(uploadDir, cleanFilename);
+
+  fs.unlink(filePath, (err) => {
+    if (err && err.code !== 'ENOENT') {
+      console.error(`Gagal menghapus file ${cleanFilename}:`, err.message);
+    } else {
+      console.log(`File fisik berhasil dihapus: ${cleanFilename}`);
+    }
+  });
+};
+
+module.exports = { upload, processImage, deleteFile };
