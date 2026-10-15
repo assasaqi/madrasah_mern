@@ -13,6 +13,9 @@ import {
 } from 'lucide-react';
 import { publicService } from '../../services/publicService';
 
+// Base URL Backend untuk File Static Uploads
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState([
@@ -31,15 +34,57 @@ export default function Home() {
   const fetchHomeData = async () => {
     try {
       setLoading(true);
-      const data = await publicService.getHomeData();
 
-      if (data.announcements) setAnnouncements(data.announcements);
-      if (data.latestNews) setLatestNews(data.latestNews);
-      if (data.stats) setStats(data.stats);
+      // Ambil Data Utama dari Public Service
+      const resData = await publicService.getHomeData();
+      const data = resData?.data || resData || {};
+
+      // 1. Set Data Pengumuman
+      const rawAnnouncements = data.announcements || data.pengumuman || [];
+      if (Array.isArray(rawAnnouncements)) {
+        setAnnouncements(rawAnnouncements);
+      }
+
+      // 2. Set Data Berita Terbaru
+      const rawNews = data.latestNews || data.berita || [];
+      if (Array.isArray(rawNews)) {
+        setLatestNews(rawNews);
+      }
+
+      // 3. Set Data Statistik jika ada dari API
+      if (data.stats && Array.isArray(data.stats)) {
+        setStats(data.stats);
+      }
     } catch (error) {
-      console.warn('Gagal memuat data dari server, menggunakan data fallback lokal.', error);
+      console.warn('Gagal memuat data utama dari server API, menggunakan data fallback lokal.', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper untuk Memformat URL Gambar dari Backend
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) {
+      return 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&auto=format&fit=crop&q=80';
+    }
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    const cleanPath = imagePath.startsWith('/') ? imagePath : `/uploads/${imagePath}`;
+    return `${API_BASE_URL}${cleanPath}`;
+  };
+
+  // Helper Format Tanggal Indonesia
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    try {
+      return new Date(dateString).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return dateString;
     }
   };
 
@@ -101,7 +146,7 @@ export default function Home() {
             const IconComponent = stat.icon || Users;
             return (
               <div
-                key={stat.id}
+                key={stat.id || stat.label}
                 className="bg-white p-6 rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 text-center space-y-2 hover:-translate-y-1 transition"
               >
                 <div className="w-12 h-12 mx-auto rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
@@ -132,11 +177,13 @@ export default function Home() {
                 <p className="text-xs text-emerald-200 py-2">Belum ada pengumuman terbaru.</p>
               ) : (
                 <div className="space-y-4">
-                  {announcements.map((item) => (
+                  {announcements.slice(0, 3).map((item) => (
                     <div key={item.id} className="border-b border-emerald-800 pb-3 last:border-0 last:pb-0">
-                      <span className="text-xs text-emerald-300 font-medium">{item.date}</span>
-                      <h4 className="text-sm font-bold text-white mt-1 hover:text-emerald-200 cursor-pointer transition">
-                        {item.title}
+                      <span className="text-xs text-emerald-300 font-medium">
+                        {formatDate(item.createdAt || item.date)}
+                      </span>
+                      <h4 className="text-sm font-bold text-white mt-1 hover:text-emerald-200 cursor-pointer transition line-clamp-2">
+                        {item.judul || item.title}
                       </h4>
                     </div>
                   ))}
@@ -198,35 +245,35 @@ export default function Home() {
           <div className="text-center py-12 text-gray-500 text-sm">Belum ada artikel berita yang dipublikasikan.</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {latestNews.map((news) => (
+            {latestNews.slice(0, 3).map((news) => (
               <article
                 key={news.id}
                 className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col"
               >
                 <div className="relative h-48 overflow-hidden">
                   <img
-                    src={news.image || 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&auto=format&fit=crop&q=80'}
-                    alt={news.title}
+                    src={getImageUrl(news.gambar || news.image)}
+                    alt={news.judul || news.title}
                     className="w-full h-full object-cover hover:scale-105 transition duration-300"
                   />
-                  <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-lg">
+                  <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow">
                     {news.kategori?.nama || news.category || 'Berita'}
                   </span>
                 </div>
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
                   <div>
                     <span className="text-xs text-gray-400 font-medium">
-                      {news.createdAt ? new Date(news.createdAt).toLocaleDateString('id-ID') : news.date}
+                      {formatDate(news.createdAt || news.date)}
                     </span>
                     <h3 className="font-bold text-gray-900 text-base mt-1 line-clamp-2 hover:text-emerald-600 cursor-pointer transition">
-                      {news.title}
+                      {news.judul || news.title}
                     </h3>
                     <p className="text-xs text-gray-600 mt-2 line-clamp-3 leading-relaxed">
-                      {news.excerpt || news.konten?.substring(0, 100)}
+                      {news.konten ? news.konten.replace(/<[^>]+>/g, '').substring(0, 110) + '...' : news.excerpt}
                     </p>
                   </div>
                   <Link
-                    to={`/berita/${news.id}`}
+                    to={`/berita/${news.slug || news.id}`}
                     className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition pt-2"
                   >
                     Baca Selengkapnya <ArrowRight size={12} />

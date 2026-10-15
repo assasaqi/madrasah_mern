@@ -3,13 +3,11 @@ const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
 
-// Memastikan folder uploads ada
 const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Memory Storage untuk diproses oleh Sharp
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
@@ -27,11 +25,9 @@ const upload = multer({
   fileFilter,
 });
 
-// Auto-resize gambar menjadi WebP sesuai Acceptance Criteria PRD
 const processImage = async (req, res, next) => {
   if (!req.file) return next();
 
-  // Jika file adalah PDF, simpan langsung
   if (req.file.mimetype === 'application/pdf') {
     const filename = `doc-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
     const outputPath = path.join(uploadDir, filename);
@@ -41,7 +37,6 @@ const processImage = async (req, res, next) => {
     return next();
   }
 
-  // Jika Gambar: Optimasi & Resize
   try {
     const filename = `img-${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
     const outputPath = path.join(uploadDir, filename);

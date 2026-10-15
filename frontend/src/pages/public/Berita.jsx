@@ -1,77 +1,107 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Calendar, Tag, ArrowRight, Loader2, Megaphone, FileText } from 'lucide-react';
+import { Search, Calendar, ArrowRight, Loader2, FileText } from 'lucide-react';
 import { publicService } from '../../services/publicService';
+
+// URL Base Backend untuk gambar statis
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function Berita() {
   const [newsList, setNewsList] = useState([]);
-  const [categories, setCategories] = useState(['Semua', 'Prestasi', 'Kegiatan', 'Tahfidz', 'Pengumuman']);
+  const [categories, setCategories] = useState(['Semua']);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Data fallback berita jika API belum siap
-  const dummyNews = [
-    {
-      id: '1',
-      title: 'Siswa Madrasah Raih Medali Emas Olimpiade Sains Nasional 2026',
-      category: 'Prestasi',
-      date: '12 Okt 2026',
-      image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&auto=format&fit=crop&q=80',
-      excerpt: 'Prestasi membanggakan kembali diraih oleh siswa dalam ajang OSN tingkat nasional bidang Matematika dan IPA.',
-    },
-    {
-      id: '2',
-      title: 'Kegiatan Peringatan Hari Santri Nasional Berlangsung Khidmat',
-      category: 'Kegiatan',
-      date: '08 Okt 2026',
-      image: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=600&auto=format&fit=crop&q=80',
-      excerpt: 'Seluruh civitas akademika madrasah mengikuti apel bendera dan rangkaian perlombaan keagamaan antar kelas.',
-    },
-    {
-      id: '3',
-      title: 'Program Wisuda Tahfidz Qur\'an Angkatan ke-10',
-      category: 'Tahfidz',
-      date: '01 Okt 2026',
-      image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=600&auto=format&fit=crop&q=80',
-      excerpt: 'Sebanyak 50 santri dan santriwati resmi diwisuda setelah mengkhatamkan hafalan 30 Juz Al-Qur\'an.',
-    },
-    {
-      id: '4',
-      title: 'Jadwal Pelaksanaan Ujian Tengah Semester (UTS) Ganjil 2026/2027',
-      category: 'Pengumuman',
-      date: '25 Sep 2026',
-      image: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&auto=format&fit=crop&q=80',
-      excerpt: 'Informasi lengkap teknis, tata tertib, dan jadwal mata pelajaran ujian tengah semester untuk seluruh jenjang.',
-    },
-  ];
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
 
   useEffect(() => {
     fetchBerita();
   }, [selectedCategory]);
 
+  // Ambil Daftar Kategori & Data Awal
+  const fetchInitialData = async () => {
+    try {
+      if (publicService.getKategori && typeof publicService.getKategori === 'function') {
+        const resCat = await publicService.getKategori();
+        const rawCategories = resCat?.data || resCat || [];
+        if (Array.isArray(rawCategories) && rawCategories.length > 0) {
+          const catNames = rawCategories.map((c) => c.nama || c.name || c);
+          setCategories(['Semua', ...catNames]);
+        }
+      }
+    } catch (err) {
+      console.warn('Gagal memuat kategori dari API, menggunakan kategori default:', err);
+      setCategories(['Semua', 'Prestasi', 'Kegiatan', 'Tahfidz', 'Pengumuman']);
+    }
+  };
+
+  // Ambil Daftar Berita dari Server API
   const fetchBerita = async () => {
     try {
       setLoading(true);
       const params = selectedCategory !== 'Semua' ? { kategori: selectedCategory } : {};
       const res = await publicService.getBerita(params);
-      if (res.data && res.data.length > 0) {
-        setNewsList(res.data);
+
+      const rawData = res?.data || res || [];
+      if (Array.isArray(rawData)) {
+        setNewsList(rawData);
       } else {
-        setNewsList(dummyNews);
+        setNewsList([]);
       }
     } catch (error) {
-      setNewsList(dummyNews);
+      console.error('Gagal memuat berita dari API:', error);
+      setNewsList([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter pencarian lokal
+  // Helper Formatter URL Gambar dari Backend
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) {
+      return 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&auto=format&fit=crop&q=80';
+    }
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    const cleanPath = imagePath.startsWith('/') ? imagePath : `/uploads/${imagePath}`;
+    return `${API_BASE_URL}${cleanPath}`;
+  };
+
+  // Helper Format Tanggal Indonesia
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    try {
+      return new Date(dateString).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  // Helper Membersihkan HTML Tag dari Konten
+  const stripHtml = (htmlString) => {
+    if (!htmlString) return '';
+    return htmlString.replace(/<[^>]+>/g, '').trim();
+  };
+
+  // Filter Pencarian Lokal
   const filteredNews = newsList.filter((item) => {
-    const matchesCategory = selectedCategory === 'Semua' || (item.category || item.kategori?.nama) === selectedCategory;
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          item.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
+    const itemCategory = item.kategori?.nama || item.category || 'Berita';
+    const matchesCategory = selectedCategory === 'Semua' || itemCategory.toLowerCase() === selectedCategory.toLowerCase();
+
+    const title = (item.judul || item.title || '').toLowerCase();
+    const content = stripHtml(item.konten || item.excerpt || '').toLowerCase();
+    const q = searchQuery.toLowerCase().trim();
+
+    const matchesSearch = title.includes(q) || content.includes(q);
+
     return matchesCategory && matchesSearch;
   });
 
@@ -136,49 +166,57 @@ export default function Berita() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredNews.map((news) => (
-              <article
-                key={news.id}
-                className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col justify-between"
-              >
-                <div>
-                  <div className="relative h-48 overflow-hidden">
-                    <img
-                      src={news.image || 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&auto=format&fit=crop&q=80'}
-                      alt={news.title}
-                      className="w-full h-full object-cover hover:scale-105 transition duration-300"
-                    />
-                    <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-lg">
-                      {news.category || news.kategori?.nama || 'Berita'}
-                    </span>
-                  </div>
+            {filteredNews.map((news) => {
+              const newsTitle = news.judul || news.title;
+              const newsContent = stripHtml(news.konten || news.excerpt);
+              const newsCategory = news.kategori?.nama || news.category || 'Berita';
+              const newsImage = getImageUrl(news.gambar || news.image);
+              const newsDate = formatDate(news.createdAt || news.date);
 
-                  <div className="p-5 space-y-3">
-                    <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
-                      <Calendar size={14} />
-                      <span>{news.date || new Date(news.createdAt).toLocaleDateString('id-ID')}</span>
+              return (
+                <article
+                  key={news.id}
+                  className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="relative h-48 overflow-hidden">
+                      <img
+                        src={newsImage}
+                        alt={newsTitle}
+                        className="w-full h-full object-cover hover:scale-105 transition duration-300"
+                      />
+                      <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow">
+                        {newsCategory}
+                      </span>
                     </div>
 
-                    <h2 className="font-bold text-gray-900 text-base line-clamp-2 hover:text-emerald-600 cursor-pointer transition">
-                      {news.title}
-                    </h2>
+                    <div className="p-5 space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
+                        <Calendar size={14} />
+                        <span>{newsDate}</span>
+                      </div>
 
-                    <p className="text-xs text-gray-600 line-clamp-3 leading-relaxed">
-                      {news.excerpt}
-                    </p>
+                      <h2 className="font-bold text-gray-900 text-base line-clamp-2 hover:text-emerald-600 cursor-pointer transition">
+                        {newsTitle}
+                      </h2>
+
+                      <p className="text-xs text-gray-600 line-clamp-3 leading-relaxed">
+                        {newsContent}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="p-5 pt-0">
-                  <Link
-                    to={`/berita/${news.id}`}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition"
-                  >
-                    Baca Selengkapnya <ArrowRight size={14} />
-                  </Link>
-                </div>
-              </article>
-            ))}
+                  <div className="p-5 pt-0">
+                    <Link
+                      to={`/berita/${news.slug || news.id}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition"
+                    >
+                      Baca Selengkapnya <ArrowRight size={14} />
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </div>

@@ -1,20 +1,37 @@
 const express = require('express');
 const router = express.Router();
-const adminCms = require('../controllers/adminCmsController');
-const { verifyToken, isAdmin } = require('../middleware/auth');
-const upload = require('../middleware/upload'); // Middleware Multer
+const adminCmsController = require('../controllers/adminCmsController');
 
-// Proteksi semua rute khusus Admin
-router.use(verifyToken, isAdmin);
+// 🟢 PERBAIKAN: Arahkan require ke ../middleware/auth (bukan ./routes/authRoutes)
+const authMiddleware = require('../middleware/auth');
+const { upload, processImage } = require('../middleware/upload');
 
-// Berita Routes
-router.get('/berita', adminCms.getAllBerita);
-router.post('/berita', upload.single('image'), adminCms.createBerita);
-router.delete('/berita/:id', adminCms.deleteBerita);
+// Normalisasi Auth Middleware
+const authenticateToken = authMiddleware.authenticateToken || authMiddleware.verifyToken || authMiddleware;
+const authorizeRoles = typeof authMiddleware.authorizeRoles === 'function'
+  ? authMiddleware.authorizeRoles('ADMIN')
+  : (authMiddleware.isAdmin || ((req, res, next) => next()));
 
-// Pengumuman Routes
-router.get('/pengumuman', adminCms.getAllPengumuman);
-router.post('/pengumuman', adminCms.createPengumuman);
-router.delete('/pengumuman/:id', adminCms.deletePengumuman);
+// Proteksi Auth Admin
+router.use(authenticateToken);
+router.use(authorizeRoles);
+
+// --- 1. RUTE BERITA ---
+router.get('/berita', adminCmsController.getAllBerita);
+router.post(
+  '/berita',
+  upload.single('gambar'),
+  processImage,
+  adminCmsController.createBerita
+);
+router.delete('/berita/:id', adminCmsController.deleteBerita);
+
+// --- 2. RUTE KATEGORI BERITA ---
+router.get('/kategori', adminCmsController.getAllKategori);
+
+// --- 3. RUTE PENGUMUMAN ---
+router.get('/pengumuman', adminCmsController.getAllPengumuman);
+router.post('/pengumuman', adminCmsController.createPengumuman);
+router.delete('/pengumuman/:id', adminCmsController.deletePengumuman);
 
 module.exports = router;
