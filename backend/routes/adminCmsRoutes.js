@@ -12,13 +12,31 @@ const authorizeRoles = typeof authMiddleware.authorizeRoles === 'function'
   ? authMiddleware.authorizeRoles('ADMIN')
   : (authMiddleware.isAdmin || ((req, res, next) => next()));
 
-// Helper Middleware untuk menangani upload file (baik field 'gambar' maupun 'imageFile')
+// Helper Middleware untuk menangani upload gambar Berita (field 'gambar' atau 'imageFile')
 const handleImageUpload = (req, res, next) => {
   upload.single('gambar')(req, res, (err) => {
     if (err) {
       // Fallback mencoba field 'imageFile' jika 'gambar' tidak ditemukan
       return upload.single('imageFile')(req, res, (err2) => {
         if (err2) return next(err2);
+        next();
+      });
+    }
+    next();
+  });
+};
+
+// Helper Middleware untuk menangani upload file Lampiran Pengumuman ('lampiran', 'file', atau 'fileLampiran')
+const handleLampiranUpload = (req, res, next) => {
+  upload.single('lampiran')(req, res, (err) => {
+    if (err) {
+      return upload.single('file')(req, res, (err2) => {
+        if (err2) {
+          return upload.single('fileLampiran')(req, res, (err3) => {
+            if (err3) return next(err3);
+            next();
+          });
+        }
         next();
       });
     }
@@ -54,7 +72,21 @@ router.get('/kategori', adminCmsController.getAllKategori);
 
 // --- 3. RUTE PENGUMUMAN ---
 router.get('/pengumuman', adminCmsController.getAllPengumuman);
-router.post('/pengumuman', adminCmsController.createPengumuman);
+
+router.post(
+  '/pengumuman',
+  handleLampiranUpload,
+  processImage,
+  adminCmsController.createPengumuman
+);
+
+router.put(
+  '/pengumuman/:id',
+  handleLampiranUpload,
+  processImage,
+  adminCmsController.updatePengumuman
+);
+
 router.delete('/pengumuman/:id', adminCmsController.deletePengumuman);
 
 module.exports = router;

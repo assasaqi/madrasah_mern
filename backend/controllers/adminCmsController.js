@@ -221,6 +221,27 @@ exports.getAllKategori = async (req, res, next) => {
 };
 
 // --- 3. MANAJEMEN PENGUMUMAN ---
+
+// Get All Pengumuman (Admin)
+exports.getAllPengumuman = async (req, res, next) => {
+  try {
+    const pengumuman = await prisma.pengumuman.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        author: {
+          select: { id: true, email: true }
+        }
+      }
+    });
+    res.json({ success: true, data: pengumuman });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// --- 3. MANAJEMEN PENGUMUMAN ---
+
+// Get All Pengumuman
 exports.getAllPengumuman = async (req, res, next) => {
   try {
     const pengumuman = await prisma.pengumuman.findMany({
@@ -232,6 +253,7 @@ exports.getAllPengumuman = async (req, res, next) => {
   }
 };
 
+// Create Pengumuman
 exports.createPengumuman = async (req, res, next) => {
   try {
     const body = req.body || {};
@@ -271,6 +293,49 @@ exports.createPengumuman = async (req, res, next) => {
   }
 };
 
+// Update Pengumuman
+exports.updatePengumuman = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const pengumumanId = !isNaN(id) && Number.isInteger(Number(id)) ? parseInt(id, 10) : String(id);
+    const body = req.body || {};
+    const { judul, konten, isPublished } = body;
+
+    const existingPengumuman = await prisma.pengumuman.findUnique({ where: { id: pengumumanId } });
+    if (!existingPengumuman) {
+      return res.status(404).json({ success: false, message: 'Pengumuman tidak ditemukan.' });
+    }
+
+    let slug = existingPengumuman.slug;
+    if (judul && judul !== existingPengumuman.judul) {
+      let slugBase = createSlug(judul).substring(0, 190);
+      slug = slugBase;
+      const slugExists = await prisma.pengumuman.findFirst({
+        where: { slug, NOT: { id: pengumumanId } }
+      });
+      if (slugExists) {
+        slug = `${slugBase}-${Date.now()}`;
+      }
+    }
+
+    const updatedPengumuman = await prisma.pengumuman.update({
+      where: { id: pengumumanId },
+      data: {
+        ...(judul && { judul: judul.trim() }),
+        ...(slug && { slug }),
+        ...(konten && { konten }),
+        ...(isPublished !== undefined && { isPublished: isPublished === 'true' || isPublished === true })
+      }
+    });
+
+    res.json({ success: true, message: 'Pengumuman berhasil diperbarui', data: updatedPengumuman });
+  } catch (error) {
+    console.error('Error updatePengumuman:', error);
+    next(error);
+  }
+};
+
+// Delete Pengumuman
 exports.deletePengumuman = async (req, res, next) => {
   try {
     const { id } = req.params;
