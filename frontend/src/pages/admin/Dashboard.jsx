@@ -5,6 +5,8 @@ import {
   Users,
   FileText,
   Megaphone,
+  User,
+  Globe, // <-- Menambahkan Globe
   LogOut,
   Building2,
   Menu,
@@ -12,10 +14,13 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-// Import komponen-komponen admin dalam satu folder
+// Import komponen-komponen admin
+import AdminPublicProfile from './AdminPublicProfile'; // <-- Menambahkan Import
 import AdminPPDB from './AdminPPDB';
 import AdminBerita from './AdminBerita';
 import AdminPengumuman from './AdminPengumuman';
+import AdminProfile from './AdminProfile';
+AdminPublicProfile
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -29,10 +34,12 @@ export default function Dashboard() {
   };
 
   const navItems = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'public-profile', label: 'Profil Sekolah', icon: Globe },
     { id: 'ppdb', label: 'Verifikasi PPDB', icon: Users },
     { id: 'berita', label: 'Kelola Berita', icon: FileText },
     { id: 'pengumuman', label: 'Pengumuman', icon: Megaphone },
+    { id: 'profile', label: 'Edit Profil', icon: User },
   ];
 
   return (
@@ -126,11 +133,11 @@ export default function Dashboard() {
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                 <h1 className="text-xl font-bold text-gray-900">Selamat Datang di Panel Admin</h1>
                 <p className="text-xs text-gray-500 mt-1">
-                  Pilih modul di bawah ini untuk mengelola verifikasi pendaftaran PPDB atau berita & pengumuman publik.
+                  Pilih modul di bawah ini untuk mengelola verifikasi PPDB, berita & pengumuman, profil publik sekolah, atau pengaturan akun.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div
                   onClick={() => setActiveTab('ppdb')}
                   className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition cursor-pointer flex items-center justify-between"
@@ -163,14 +170,38 @@ export default function Dashboard() {
                   </div>
                   <ChevronRight size={20} className="text-emerald-600" />
                 </div>
+
+                <div
+                  onClick={() => setActiveTab('public-profile')}
+                  className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition cursor-pointer flex items-center justify-between"
+                >
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium">Informasi Publik</p>
+                    <h3 className="text-base font-bold text-gray-900 mt-1">Profil Sekolah</h3>
+                  </div>
+                  <ChevronRight size={20} className="text-emerald-600" />
+                </div>
+
+                <div
+                  onClick={() => setActiveTab('profile')}
+                  className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition cursor-pointer flex items-center justify-between"
+                >
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium">Pengaturan</p>
+                    <h3 className="text-base font-bold text-gray-900 mt-1">Edit Profil Akun</h3>
+                  </div>
+                  <ChevronRight size={20} className="text-emerald-600" />
+                </div>
               </div>
             </div>
           )}
 
-          {/* Pemanggilan Komponen Sesuai Tab Aktif */}
+          {/* Render Komponen Tab Aktif */}
+          {activeTab === 'public-profile' && <AdminPublicProfile />}
           {activeTab === 'ppdb' && <AdminPPDB />}
           {activeTab === 'berita' && <AdminBerita />}
           {activeTab === 'pengumuman' && <AdminPengumuman />}
+          {activeTab === 'profile' && <AdminProfile />}
         </main>
       </div>
     </div>

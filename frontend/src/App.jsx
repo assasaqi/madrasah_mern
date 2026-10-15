@@ -22,8 +22,7 @@ import PPDBDashboard from './pages/ppdb/Dashboard';
 import PPDBForm from './pages/ppdb/PPDBForm';
 
 // Admin Pages
-import AdminDashboard from './pages/admin/Dashboard'; // <-- Import Dashboard Admin Utama
-import AdminPPDB from './pages/admin/AdminPPDB';
+import AdminDashboard from './pages/admin/Dashboard';
 
 export default function App() {
   return (
@@ -54,7 +53,6 @@ export default function App() {
         {/* Admin Protected Routes (Khusus ADMIN) */}
         <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="ppdb" element={<AdminPPDB />} />
         </Route>
 
         {/* Fallback 404 */}
