@@ -14,6 +14,8 @@ import Berita from './pages/public/Berita';
 import BeritaDetail from './pages/public/BeritaDetail';
 import Galeri from './pages/public/Galeri';
 import Kontak from './pages/public/Kontak';
+import Pengumuman from './pages/public/Pengumuman';
+import DetailPengumuman from './pages/public/DetailPengumuman';
 
 // PPDB Pages (Calon Siswa)
 import PPDBDashboard from './pages/ppdb/Dashboard';
@@ -35,6 +37,8 @@ export default function App() {
           <Route path="/berita/:id" element={<BeritaDetail />} />
           <Route path="/galeri" element={<Galeri />} />
           <Route path="/kontak" element={<Kontak />} />
+          <Route path="/pengumuman" element={<Pengumuman />} />
+          <Route path="/pengumuman/:slug" element={<DetailPengumuman />} />
         </Route>
 
         {/* Auth Routes */}

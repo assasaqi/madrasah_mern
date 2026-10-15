@@ -12,6 +12,7 @@ const akademikRoutes = require('./routes/akademikRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const adminRoutes = require('./routes/adminRoutes');       // Rute Admin PPDB
 const adminCmsRoutes = require('./routes/adminCmsRoutes'); // Rute Admin CMS Berita & Pengumuman
+const publicCmsRoutes = require('./routes/publicCmsRoutes');
 
 const errorHandler = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
@@ -54,3 +55,6 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`Server berjalan di http://localhost:${PORT}`);
 });
+
+// Mount Route Public (Tanpa Auth Middleware)
+app.use('/api/public', publicCmsRoutes);

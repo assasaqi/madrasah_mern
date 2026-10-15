@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, LogIn, School, AlertCircle } from 'lucide-react';
 import { authService } from '../services/authService';
+import { AuthContext } from '../context/AuthContext'; // Import AuthContext
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login: setAuthContext } = useContext(AuthContext); // Ambil fungsi login dari AuthContext
+
   const [credentials, setCredentials] = useState({
     email: '',
     password: '',
@@ -29,8 +32,10 @@ export default function Login() {
       const user = data.user || data;
       const token = data.token || user.token;
 
-      if (token) localStorage.setItem('token', token);
-      if (user) localStorage.setItem('user', JSON.stringify(user));
+      // Update state global via AuthContext
+      if (user && token) {
+        setAuthContext(user, token);
+      }
 
       // Normalisasi Role ke UPPERCASE
       const rawRole = user?.role || data?.role || '';
@@ -38,7 +43,7 @@ export default function Login() {
 
       // Pengalihan Rute Berdasarkan Role
       if (role === 'ADMIN' || role === 'SUPERADMIN' || role === 'OPERATOR') {
-        navigate('/admin/dashboard'); // Diarahkan langsung ke Dashboard Admin
+        navigate('/admin/dashboard');
       } else if (role === 'GURU') {
         navigate('/guru/dashboard');
       } else if (role === 'CALON_PENDAFTAR' || role === 'PENDAFTAR') {

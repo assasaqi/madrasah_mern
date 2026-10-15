@@ -1,5 +1,5 @@
 const prisma = require('../config/prisma');
-const { deleteFile } = require('../middleware/upload'); // Import helper untuk hapus file fisik
+const { deleteFile } = require('../middleware/upload');
 
 // Helper function untuk generate Slug dari Judul
 const createSlug = (text) => {
@@ -8,11 +8,13 @@ const createSlug = (text) => {
     .toString()
     .toLowerCase()
     .trim()
-    .replace(/[\s\W-]+/g, '-') // Ganti spasi/karakter non-alphanumeric dengan "-"
-    .replace(/^-+|-+$/g, '');   // Hapus strip di awal/akhir
+    .replace(/[\s\W-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 };
 
-// --- 1. MANAJEMEN BERITA ---
+// ==========================================
+// 1. MANAJEMEN BERITA (ADMIN)
+// ==========================================
 
 // Get All Berita (Admin)
 exports.getAllBerita = async (req, res, next) => {
@@ -32,7 +34,6 @@ exports.getAllBerita = async (req, res, next) => {
   }
 };
 
-// Alias untuk getAdminBerita
 exports.getAdminBerita = exports.getAllBerita;
 
 // Create Berita Baru
@@ -45,7 +46,6 @@ exports.createBerita = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Judul dan konten berita wajib diisi.' });
     }
 
-    // Validasi Notifikasi: Panjang Judul Maksimal 200 Karakter
     if (judul.trim().length > 200) {
       return res.status(400).json({
         success: false,
@@ -53,7 +53,6 @@ exports.createBerita = async (req, res, next) => {
       });
     }
 
-    // Generate Slug Unik (Dipotong max 190 karakter untuk keamanan database)
     let slugBase = createSlug(judul).substring(0, 190);
     let slug = slugBase;
     const existingBerita = await prisma.berita.findUnique({ where: { slug } });
@@ -61,13 +60,11 @@ exports.createBerita = async (req, res, next) => {
       slug = `${slugBase}-${Date.now()}`;
     }
 
-    // Ambil ID User dari Token Authenticated
     const authorId = req.user?.id || req.user?.userId;
     if (!authorId) {
       return res.status(401).json({ success: false, message: 'User pengunggah tidak terautentikasi.' });
     }
 
-    // Normalisasi kategoriId
     let parsedKategoriId = null;
     if (kategoriId && kategoriId !== 'null' && kategoriId !== 'undefined' && kategoriId !== '') {
       parsedKategoriId = String(kategoriId);
@@ -120,7 +117,6 @@ exports.updateBerita = async (req, res, next) => {
     }
 
     let gambarPath = existingBerita.gambar;
-    // Hapus foto lama jika ada pengunggahan foto baru
     if (req.file) {
       if (existingBerita.gambar) {
         deleteFile(existingBerita.gambar);
@@ -179,21 +175,16 @@ exports.deleteBerita = async (req, res, next) => {
     const { id } = req.params;
     const beritaId = !isNaN(id) && Number.isInteger(Number(id)) ? parseInt(id, 10) : String(id);
 
-    // 1. Cari data berita untuk mendapatkan nama file gambar
     const existingBerita = await prisma.berita.findUnique({ where: { id: beritaId } });
-
     if (!existingBerita) {
       return res.status(404).json({ success: false, message: 'Berita tidak ditemukan' });
     }
 
-    // 2. Hapus file gambar fisik dari folder /uploads jika ada
     if (existingBerita.gambar) {
       deleteFile(existingBerita.gambar);
     }
 
-    // 3. Hapus data dari database
     await prisma.berita.delete({ where: { id: beritaId } });
-
     res.json({ success: true, message: 'Berita dan gambar terkait berhasil dihapus' });
   } catch (error) {
     console.error('Error deleteBerita:', error);
@@ -201,7 +192,10 @@ exports.deleteBerita = async (req, res, next) => {
   }
 };
 
-// --- 2. MANAJEMEN KATEGORI BERITA ---
+// ==========================================
+// 2. MANAJEMEN KATEGORI BERITA
+// ==========================================
+
 exports.getAllKategori = async (req, res, next) => {
   try {
     const kategoriModel = prisma.kategoriBerita || prisma.kategori;
@@ -220,28 +214,11 @@ exports.getAllKategori = async (req, res, next) => {
   }
 };
 
-// --- 3. MANAJEMEN PENGUMUMAN ---
+// ==========================================
+// 3. MANAJEMEN PENGUMUMAN (ADMIN)
+// ==========================================
 
 // Get All Pengumuman (Admin)
-exports.getAllPengumuman = async (req, res, next) => {
-  try {
-    const pengumuman = await prisma.pengumuman.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        author: {
-          select: { id: true, email: true }
-        }
-      }
-    });
-    res.json({ success: true, data: pengumuman });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// --- 3. MANAJEMEN PENGUMUMAN ---
-
-// Get All Pengumuman
 exports.getAllPengumuman = async (req, res, next) => {
   try {
     const pengumuman = await prisma.pengumuman.findMany({
@@ -249,6 +226,7 @@ exports.getAllPengumuman = async (req, res, next) => {
     });
     res.json({ success: true, data: pengumuman });
   } catch (error) {
+    console.error('Error getAllPengumuman:', error);
     next(error);
   }
 };
@@ -345,6 +323,58 @@ exports.deletePengumuman = async (req, res, next) => {
     res.json({ success: true, message: 'Pengumuman berhasil dihapus' });
   } catch (error) {
     console.error('Error deletePengumuman:', error);
+    next(error);
+  }
+};
+
+// ==========================================
+// 4. MANAJEMEN PENGUMUMAN PUBLIK (TANPA AUTH)
+// ==========================================
+
+// Get All Pengumuman Publik (Published only)
+exports.getPublicPengumuman = async (req, res, next) => {
+  try {
+    const pengumuman = await prisma.pengumuman.findMany({
+      where: { isPublished: true },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const formattedData = pengumuman.map((item) => ({
+      ...item,
+      isi: item.konten || item.isi
+    }));
+
+    res.json({ success: true, data: formattedData });
+  } catch (error) {
+    console.error('Error getPublicPengumuman:', error);
+    next(error);
+  }
+};
+
+// Get Detail Pengumuman Publik by SLUG
+exports.getPublicPengumumanBySlug = async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+
+    const pengumuman = await prisma.pengumuman.findUnique({
+      where: { slug }
+    });
+
+    if (!pengumuman || !pengumuman.isPublished) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pengumuman tidak ditemukan atau belum dipublikasikan.'
+      });
+    }
+
+    const formattedData = {
+      ...pengumuman,
+      isi: pengumuman.konten || pengumuman.isi
+    };
+
+    res.json({ success: true, data: formattedData });
+  } catch (error) {
+    console.error('Error getPublicPengumumanBySlug:', error);
     next(error);
   }
 };

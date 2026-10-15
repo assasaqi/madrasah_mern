@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Phone, Mail, Clock, Send, CheckCircle2 } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, Headphones } from 'lucide-react';
 
 export default function Kontak() {
   const [formData, setFormData] = useState({
@@ -10,6 +10,14 @@ export default function Kontak() {
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Indikator Ringkas Ticker Bar
+  const stats = [
+    { label: 'Layanan Sekretariat', value: 'Buka Setiap Hari Kerja' },
+    { label: 'Respon Email', value: '< 24 Jam' },
+    { label: 'Hotline WhatsApp', value: 'Aktif 08.00 - 16.00' },
+    { label: 'Status PPDB', value: 'Gelombang 1 Dibuka' }
+  ];
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -28,58 +36,87 @@ export default function Kontak() {
   };
 
   return (
-    <div className="space-y-12 pb-16 font-sans">
-      {/* Hero Header */}
-      <section className="bg-gradient-to-r from-emerald-800 to-teal-900 text-white py-16 px-4 sm:px-6 lg:px-8 text-center relative overflow-hidden">
-        <div className="max-w-4xl mx-auto space-y-4 relative z-10">
-          <span className="inline-block px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-600/60 text-emerald-100 border border-emerald-400/30">
-            Hubungi Kami
-          </span>
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">Kontak & Lokasi</h1>
-          <p className="text-emerald-100 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
-            Punya pertanyaan seputar pendaftaran PPDB, informasi akademik, atau layanan madrasah? Kami siap membantu Anda.
-          </p>
+    <div className="space-y-8 pb-16 font-sans">
+
+      {/* 1. TOP BANNER HEADER (Konsisten dengan Seluruh Halaman) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 rounded-2xl p-6 sm:p-8 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+          <div className="space-y-2 z-10 text-center md:text-left">
+            <span className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-semibold backdrop-blur-xs">
+              Hubungi Kami
+            </span>
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
+              Kontak & Lokasi Madrasah
+            </h1>
+            <p className="text-emerald-100 text-xs sm:text-sm max-w-xl">
+              Punya pertanyaan seputar pendaftaran PPDB, informasi akademik, atau layanan madrasah? Tim sekretariat kami siap membantu Anda.
+            </p>
+          </div>
+          <div className="shrink-0 z-10 hidden sm:block">
+            <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-inner">
+              <Headphones size={32} />
+            </div>
+          </div>
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        {/* Grid Kartu Informasi Kontak */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <MapPin size={22} />
+      {/* 2. STATS & INDIKATOR TICKER BAR */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white border border-gray-200 rounded-xl p-2 flex items-center overflow-x-auto gap-4 text-xs font-semibold scrollbar-none shadow-xs">
+          <div className="bg-emerald-800 text-white px-4 py-2 rounded-lg font-bold uppercase shrink-0">
+            PUSAT BANTUAN
+          </div>
+          <div className="flex items-center gap-6 divide-x divide-gray-200 shrink-0">
+            {stats.map((stat, idx) => (
+              <div key={idx} className="pl-6 first:pl-2 flex items-center gap-1.5 whitespace-nowrap">
+                <span className="text-gray-500 font-medium">{stat.label}</span>
+                <span className="text-emerald-700 font-extrabold text-sm">{stat.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 3. KONTEN UTAMA */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+
+        {/* Grid 4 Kartu Informasi Kontak */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-xs space-y-2 hover:-translate-y-0.5 transition duration-200">
+            <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center">
+              <MapPin size={20} />
             </div>
-            <h3 className="font-bold text-gray-900 text-base">Alamat Utama</h3>
+            <h3 className="font-bold text-gray-900 text-sm">Alamat Utama</h3>
             <p className="text-xs text-gray-600 leading-relaxed">
               Jl. Pendidikan No. 123, Kel. Sukamaju, Kec. Madani, Kota Madrasah 12345
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Phone size={22} />
+          <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-xs space-y-2 hover:-translate-y-0.5 transition duration-200">
+            <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center">
+              <Phone size={20} />
             </div>
-            <h3 className="font-bold text-gray-900 text-base">Telepon & WhatsApp</h3>
+            <h3 className="font-bold text-gray-900 text-sm">Telepon & WhatsApp</h3>
             <p className="text-xs text-gray-600 leading-relaxed">
-              (021) 555-0192 / +62 812-3456-7890 (Layanan PPDB)
+              (021) 555-0192 / +62 812-3456-7890 (PPDB)
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Mail size={22} />
+          <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-xs space-y-2 hover:-translate-y-0.5 transition duration-200">
+            <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center">
+              <Mail size={20} />
             </div>
-            <h3 className="font-bold text-gray-900 text-base">Alamat Email</h3>
+            <h3 className="font-bold text-gray-900 text-sm">Alamat Email</h3>
             <p className="text-xs text-gray-600 leading-relaxed">
               info@madrasah.sch.id<br />ppdb@madrasah.sch.id
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Clock size={22} />
+          <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-xs space-y-2 hover:-translate-y-0.5 transition duration-200">
+            <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center">
+              <Clock size={20} />
             </div>
-            <h3 className="font-bold text-gray-900 text-base">Jam Operasional</h3>
+            <h3 className="font-bold text-gray-900 text-sm">Jam Operasional</h3>
             <p className="text-xs text-gray-600 leading-relaxed">
               Senin - Jumat: 07.00 - 15.30 WIB<br />Sabtu: 08.00 - 12.00 WIB
             </p>
@@ -87,24 +124,25 @@ export default function Kontak() {
         </div>
 
         {/* Section Form Pesan & Peta Lokasi */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
           {/* Form Pertanyaan */}
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+          <div className="bg-white p-6 sm:p-7 rounded-2xl border border-gray-100 shadow-xs space-y-5">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Kirim Pertanyaan</h2>
-              <p className="text-xs text-gray-500 mt-1">Isi formulir di bawah ini untuk mengirimkan pesan langsung ke sekretariat madrasah.</p>
+              <h2 className="text-lg font-bold text-gray-900">Kirim Pertanyaan</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Isi formulir di bawah ini untuk mengirimkan pesan langsung ke sekretariat madrasah.</p>
             </div>
 
             {submitted && (
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-start gap-3">
-                <CheckCircle2 size={20} className="text-emerald-600 shrink-0 mt-0.5" />
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3.5 rounded-xl flex items-start gap-2.5">
+                <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" />
                 <div className="text-xs font-medium leading-relaxed">
                   Pesan Anda telah berhasil terkirim! Tim sekretariat kami akan segera menghubungi Anda melalui email.
                 </div>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Nama Lengkap</label>
                 <input
@@ -114,7 +152,7 @@ export default function Kontak() {
                   value={formData.nama}
                   onChange={handleChange}
                   placeholder="Ahmad Fauzi"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                 />
               </div>
 
@@ -127,7 +165,7 @@ export default function Kontak() {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="nama@email.com"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                 />
               </div>
 
@@ -140,7 +178,7 @@ export default function Kontak() {
                   value={formData.subjek}
                   onChange={handleChange}
                   placeholder="Informasi Pendaftaran PPDB"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                 />
               </div>
 
@@ -148,23 +186,23 @@ export default function Kontak() {
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Isi Pesan</label>
                 <textarea
                   name="pesan"
-                  rows={4}
+                  rows={3}
                   required
                   value={formData.pesan}
                   onChange={handleChange}
                   placeholder="Tuliskan pertanyaan atau pesan Anda secara lengkap..."
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                 ></textarea>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-semibold text-sm text-white bg-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50 shadow-md shadow-emerald-200"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-5 rounded-lg font-bold text-xs text-white bg-emerald-800 hover:bg-emerald-900 transition cursor-pointer disabled:opacity-50 shadow-xs"
               >
                 {loading ? 'Memproses...' : (
                   <>
-                    <Send size={16} /> Kirim Pesan
+                    <Send size={15} /> Kirim Pesan
                   </>
                 )}
               </button>
@@ -172,13 +210,13 @@ export default function Kontak() {
           </div>
 
           {/* Peta Lokasi */}
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4 flex flex-col h-full justify-between">
+          <div className="bg-white p-6 sm:p-7 rounded-2xl border border-gray-100 shadow-xs space-y-4 flex flex-col h-full justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Peta Lokasi</h2>
-              <p className="text-xs text-gray-500 mt-1">Lokasi kampus madrasah dapat diakses dengan mudah melalui peta digital.</p>
+              <h2 className="text-lg font-bold text-gray-900">Peta Lokasi</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Lokasi kampus madrasah dapat diakses dengan mudah melalui peta digital.</p>
             </div>
 
-            <div className="rounded-2xl overflow-hidden border border-gray-200 h-[380px] bg-gray-100">
+            <div className="rounded-xl overflow-hidden border border-gray-200 h-[340px] bg-gray-100">
               <iframe
                 title="Peta Lokasi Madrasah"
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d126748.28318728957!2d107.573117!3d-6.914744!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e68e6398252477f%3A0x14607716192a5b0!2sBandung%2C%20West%20Java!5e0!3m2!1sen!2sid!4v1700000000000!5m2!1sen!2sid"
@@ -191,6 +229,7 @@ export default function Kontak() {
               ></iframe>
             </div>
           </div>
+
         </div>
       </div>
     </div>
