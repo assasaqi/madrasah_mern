@@ -25,39 +25,80 @@ const upload = multer({
   fileFilter,
 });
 
+// Middleware Pemroses Gambar & PDF
 const processImage = async (req, res, next) => {
-  if (!req.file) return next();
-
-  if (req.file.mimetype === 'application/pdf') {
-    const filename = `doc-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
-    const outputPath = path.join(uploadDir, filename);
-    fs.writeFileSync(outputPath, req.file.buffer);
-    req.file.filename = filename;
-    req.file.fileUrl = `/uploads/${filename}`;
-    return next();
-  }
+  if (!req.file && !req.files) return next();
 
   try {
-    const filename = `img-${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
-    const outputPath = path.join(uploadDir, filename);
+    // 1. Penanganan Single File (req.file)
+    if (req.file) {
+      // 🛑 CEK: Abaikan jika buffer kosong (tidak ada file baru diunggah)
+      if (!req.file.buffer || req.file.buffer.length === 0) {
+        req.file = undefined;
+      } else if (req.file.mimetype === 'application/pdf') {
+        const filename = `doc-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
+        fs.writeFileSync(path.join(uploadDir, filename), req.file.buffer);
+        req.file.filename = filename;
+        req.file.fileUrl = `/uploads/${filename}`;
+      } else {
+        const filename = `img-${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
+        await sharp(req.file.buffer)
+          .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+          .webp({ quality: 80 })
+          .toFile(path.join(uploadDir, filename));
 
-    await sharp(req.file.buffer)
-      .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toFile(outputPath);
+        req.file.filename = filename;
+        req.file.fileUrl = `/uploads/${filename}`;
+      }
+    }
 
-    req.file.filename = filename;
-    req.file.fileUrl = `/uploads/${filename}`;
+    // 2. Penanganan Multiple Fields (req.files) - Digunakan di Profil Sekolah
+    if (req.files) {
+      for (const fieldName of Object.keys(req.files)) {
+        // Filter hanya file yang memiliki isi (buffer.length > 0)
+        const validFiles = [];
+
+        for (const file of req.files[fieldName]) {
+          // 🛑 CEK: Abaikan jika buffer kosong
+          if (!file.buffer || file.buffer.length === 0) continue;
+
+          if (file.mimetype === 'application/pdf') {
+            const filename = `${fieldName}-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
+            fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+            file.filename = filename;
+            file.fileUrl = `/uploads/${filename}`;
+            validFiles.push(file);
+          } else {
+            const filename = `${fieldName}-${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
+            await sharp(file.buffer)
+              .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+              .webp({ quality: 80 })
+              .toFile(path.join(uploadDir, filename));
+
+            file.filename = filename;
+            file.fileUrl = `/uploads/${filename}`;
+            validFiles.push(file);
+          }
+        }
+
+        // Update req.files[fieldName] dengan file yang benar-benar diunggah
+        if (validFiles.length > 0) {
+          req.files[fieldName] = validFiles;
+        } else {
+          delete req.files[fieldName];
+        }
+      }
+    }
+
     next();
   } catch (error) {
     next(error);
   }
 };
 
-// 🟢 HELPER: Menghapus File Fisik di Folder Uploads
+// Helper Menghapus File Fisik
 const deleteFile = (filename) => {
   if (!filename) return;
-  // Bersihkan path jika ada prefix /uploads/
   const cleanFilename = filename.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
   const filePath = path.join(uploadDir, cleanFilename);
 
@@ -70,4 +111,10 @@ const deleteFile = (filename) => {
   });
 };
 
-module.exports = { upload, processImage, deleteFile };
+module.exports = {
+  upload,
+  processImage,
+  deleteFile,
+  single: (fieldname) => [upload.single(fieldname), processImage],
+  fields: (fieldsArray) => [upload.fields(fieldsArray), processImage]
+};

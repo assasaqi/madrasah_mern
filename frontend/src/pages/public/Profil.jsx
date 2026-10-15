@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Target,
@@ -10,23 +10,44 @@ import {
   Monitor,
   Library,
   Compass,
-  Sparkles,
-  Award as AwardIcon
+  Sparkles
 } from 'lucide-react';
+import { getPublicSchoolProfile } from "../../services/profileService";
 
 export default function Profil() {
   const [activeTab, setActiveTab] = useState('visi-misi');
+  const [schoolData, setSchoolData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Indikator Ringkas Profil Madrasah
+  // Ambil data profil dari API saat komponen pertama kali dimuat
+  useEffect(() => {
+    fetchSchoolProfile();
+  }, []);
+
+  const fetchSchoolProfile = async () => {
+    try {
+      setLoading(true);
+      const res = await getPublicSchoolProfile();
+      if (res.success && res.data) {
+        setSchoolData(res.data);
+      }
+    } catch (err) {
+      console.error('Gagal mengambil profil madrasah:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Indikator Ringkas Profil Madrasah Dinamis & Fallback
   const stats = [
-    { label: 'Tahun Berdiri', value: '1998' },
-    { label: 'Akreditasi', value: 'A (Unggul)' },
+    { label: 'NPSN', value: schoolData?.npsn || '12345678' },
+    { label: 'Akreditasi', value: schoolData?.akreditasi ? `Akreditasi ${schoolData.akreditasi}` : 'A (Unggul)' },
     { label: 'Siswa Terbina', value: '850+' },
     { label: 'Tenaga Pendidik', value: '45 Guru' },
     { label: 'Luas Area', value: '1.5 Hektar' }
   ];
 
-  // Data Fasilitas Madrasah
+  // Data Fasilitas Madrasah (Tetap Statis / Bisa dikembangkan via API)
   const facilities = [
     {
       id: 1,
@@ -66,7 +87,7 @@ export default function Profil() {
     },
   ];
 
-  // Data Struktur Organisasi / Pimpinan
+  // Data Pimpinan
   const leaders = [
     {
       role: 'Kepala Madrasah',
@@ -90,32 +111,72 @@ export default function Profil() {
     },
   ];
 
+  // Olah array misi jika tipe datanya string JSON
+  const getMisiArray = () => {
+    if (!schoolData?.misi) return [];
+    if (Array.isArray(schoolData.misi)) return schoolData.misi;
+    try {
+      return JSON.parse(schoolData.misi);
+    } catch {
+      return [schoolData.misi];
+    }
+  };
+
+  const misiList = getMisiArray();
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <p className="text-xs font-semibold text-emerald-700 animate-pulse">
+          Memuat profil madrasah...
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-16 font-sans">
 
-      {/* 1. TOP BANNER HEADER PROFIL (Senada dengan Home Banner) */}
+      {/* 1. TOP BANNER HEADER PROFIL */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 rounded-2xl p-6 sm:p-8 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+          {schoolData?.banner && (
+            <div className="absolute inset-0 opacity-20 pointer-events-none">
+              <img
+                src={`http://localhost:5000/uploads/${schoolData.banner}`}
+                alt="Banner Madrasah"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
           <div className="space-y-2 z-10 text-center md:text-left">
             <span className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-semibold backdrop-blur-xs">
               Tentang Kami
             </span>
             <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
-              Profil & Identitas Madrasah
+              {schoolData?.namaSekolah || 'Profil & Identitas Madrasah'}
             </h1>
             <p className="text-emerald-100 text-xs sm:text-sm max-w-xl">
-              Mengenal lebih dekat visi, misi, sejarah perjalanan, jajaran pengelola, serta sarana prasarana pendukung pembelajaran di madrasah kami.
+              {schoolData?.tagline || 'Mengenal lebih dekat visi, misi, sejarah perjalanan, jajaran pengelola, serta sarana prasarana pendukung pembelajaran di madrasah kami.'}
             </p>
           </div>
           <div className="shrink-0 z-10 hidden sm:block">
-            <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-inner">
-              <Building2 size={32} />
+            <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-inner overflow-hidden p-2">
+              {schoolData?.logo ? (
+                <img
+                  src={`http://localhost:5000/uploads/${schoolData.logo}`}
+                  alt="Logo"
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <Building2 size={32} />
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. STATS & INDIKATOR TICKER BAR (Senada dengan Home Indeks Bar) */}
+      {/* 2. STATS & INDIKATOR TICKER BAR */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white border border-gray-200 rounded-xl p-2 flex items-center overflow-x-auto gap-4 text-xs font-semibold scrollbar-none shadow-xs">
           <div className="bg-emerald-800 text-white px-4 py-2 rounded-lg font-bold uppercase shrink-0">
@@ -176,7 +237,7 @@ export default function Profil() {
               </span>
               <h2 className="text-xl font-extrabold text-gray-900">Visi Madrasah</h2>
               <p className="text-base sm:text-lg font-semibold text-emerald-900 max-w-3xl mx-auto italic leading-relaxed">
-                "Terwujudnya Generasi Qur’ani yang Unggul dalam Prestasi Akademik, Berakhlak Mulia, dan Menguasai Teknologi Informasi."
+                "{schoolData?.visi || "Terwujudnya Generasi Qur’ani yang Unggul dalam Prestasi Akademik, Berakhlak Mulia, dan Menguasai Teknologi Informasi."}"
               </p>
             </div>
 
@@ -187,19 +248,16 @@ export default function Profil() {
                 <h3 className="text-lg font-bold text-gray-900">Misi Madrasah</h3>
               </div>
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {[
-                  'Menyelenggarakan pendidikan agama Islam berbasis Al-Qur\'an dan Sunnah secara mendalam.',
-                  'Mengembangkan kurikulum akademik terintegrasi dengan sains dan teknologi modern.',
-                  'Membimbing dan memfasilitasi program Tahfidz Al-Qur\'an secara intensif.',
-                  'Menerapkan budaya berakhlakul karimah dalam kehidupan sehari-hari di lingkungan madrasah.',
-                  'Menyelenggarakan kegiatan ekstrakurikuler yang beragam untuk menggali minat dan bakat siswa.',
-                  'Membangun kemitraan sinergis antara madrasah, orang tua, dan masyarakat luas.',
-                ].map((item, index) => (
-                  <li key={index} className="flex items-start gap-2.5 p-3 bg-emerald-50/40 rounded-xl border border-emerald-50">
-                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
-                    <span className="text-xs sm:text-sm font-medium text-gray-700 leading-relaxed">{item}</span>
-                  </li>
-                ))}
+                {misiList.length > 0 ? (
+                  misiList.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2.5 p-3 bg-emerald-50/40 rounded-xl border border-emerald-50">
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                      <span className="text-xs sm:text-sm font-medium text-gray-700 leading-relaxed">{item}</span>
+                    </li>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-400 italic">Belum ada data misi yang diunggah.</p>
+                )}
               </ul>
             </div>
           </div>
@@ -210,17 +268,11 @@ export default function Profil() {
           <div className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-8 shadow-xs space-y-4 animate-fadeIn">
             <div className="flex items-center gap-2.5 border-b border-gray-100 pb-3">
               <History size={20} className="text-emerald-600" />
-              <h2 className="text-lg font-bold text-gray-900">Sejarah Pendirian</h2>
+              <h2 className="text-lg font-bold text-gray-900">Deskripsi & Sejarah Pendirian</h2>
             </div>
             <div className="text-gray-700 text-xs sm:text-sm leading-relaxed space-y-3">
-              <p>
-                Madrasah ini didirikan pada tahun <strong className="text-emerald-800">1998</strong> atas prakarsa para tokoh agama dan cendekiawan muslim daerah setempat yang bercita-cita menyediakan wadah pendidikan Islam terpadu berkualitas tinggi.
-              </p>
-              <p>
-                Berawal dari bangunan sederhana dengan 3 ruang kelas dan 45 siswa, madrasah terus berkembang pesat seiring tingginya kepercayaan masyarakat. Pada tahun 2010, madrasah berhasil meraih Akreditasi "A" (Unggul) dari Badan Akreditasi Nasional Sekolah/Madrasah.
-              </p>
-              <p>
-                Kini, madrasah telah membina lebih dari 800 siswa dengan fasilitas sarana dan prasarana modern, serta lulusan yang tersebar di berbagai perguruan tinggi negeri maupun luar negeri.
+              <p className="whitespace-pre-line">
+                {schoolData?.deskripsi || 'Madrasah ini didirikan atas prakarsa para tokoh agama dan cendekiawan muslim daerah setempat yang bercita-cita menyediakan wadah pendidikan Islam terpadu berkualitas tinggi.'}
               </p>
             </div>
           </div>
@@ -236,30 +288,24 @@ export default function Profil() {
               </div>
             </div>
 
-            {/* Layout Poster Vertikal (Scroll Mobile, 10 Kolom di Laptop) */}
             <div className="flex lg:grid lg:grid-cols-10 gap-3 overflow-x-auto pb-4 lg:pb-0 snap-x snap-mandatory scrollbar-none">
               {leaders.map((leader, index) => (
                 <div
                   key={index}
                   className="group bg-white rounded-xl border border-gray-100 overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 flex flex-col shrink-0 w-[calc(50%-6px)] lg:w-auto snap-start"
                 >
-                  {/* Container Foto Penuh */}
                   <div className="relative h-44 sm:h-48 lg:h-40 w-full overflow-hidden bg-gray-100">
                     <img
                       src={leader.image}
                       alt={leader.name}
                       className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
                     />
-                    {/* Dark Gradient Overlay Bawah */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
-
-                    {/* Badge Jabatan Melayang */}
                     <span className="absolute top-2 left-2 bg-emerald-800 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-xs line-clamp-1">
                       {leader.role}
                     </span>
                   </div>
 
-                  {/* Area Nama & Detail */}
                   <div className="p-2 sm:p-2.5 text-center bg-white flex-1 flex flex-col justify-center border-t border-gray-50">
                     <h3 className="font-bold text-gray-900 text-xs group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug">
                       {leader.name}

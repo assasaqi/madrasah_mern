@@ -6,7 +6,9 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ==========================================
 // ENUMS
+// ==========================================
 
 enum Role {
   ADMIN
@@ -56,17 +58,20 @@ enum PredikatTahfidz {
   MAQBUL
 }
 
+// ==========================================
 // MODUL AUTENTIKASI & USER
+// ==========================================
 
 model User {
-  id           String           @id @default(uuid())
-  email        String           @unique
-  password     String
-  role         Role             @default(CALON_PENDAFTAR)
-  isVerified   Boolean          @default(false)
-  emailToken   String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  role        Role     @default(CALON_PENDAFTAR)
+  foto        String?  // URL / Path Foto Profil Admin/User
+  isVerified  Boolean  @default(false)
+  emailToken  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   guruProfile  Guru?
   siswaProfile Siswa?
@@ -77,7 +82,36 @@ model User {
   @@map("users")
 }
 
-// MODUL CMS PUBLIK
+// ==========================================
+// MODUL CMS PUBLIK & PROFIL SEKOLAH
+// ==========================================
+
+model ProfilSekolah {
+  id          String   @id @default(uuid())
+  namaSekolah String   @default("MA Negeri 1 Contoh")
+  npsn        String
+  akreditasi  String   @default("A")
+  tagline     String?
+  deskripsi   String?  @db.Text
+  logo        String?
+  banner      String?
+
+  // Kontak & Alamat
+  alamat      String?  @db.Text
+  email       String?
+  telepon     String?
+  whatsapp    String?
+  mapsUrl     String?  @db.Text
+
+  // Visi & Misi
+  visi        String?  @db.Text
+  misi        Json?    // Array string untuk poin-poin misi
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("profilSekolah")
+}
 
 model KategoriBerita {
   id     String   @id @default(uuid())
@@ -140,7 +174,9 @@ model PesanKontak {
   @@map("pesanKontak")
 }
 
+// ==========================================
 // MODUL PPDB
+// ==========================================
 
 model PendaftaranPPDB {
   id               String            @id @default(uuid())
@@ -203,7 +239,9 @@ model DokumenPPDB {
   @@map("dokumenPpdb")
 }
 
+// ==========================================
 // MODUL AKADEMIK & KESANTRIAN
+// ==========================================
 
 model TahunAjaran {
   id       String   @id @default(uuid())

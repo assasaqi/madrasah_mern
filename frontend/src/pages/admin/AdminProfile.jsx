@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { User, Lock, Upload, Save, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Lock, Upload, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { getAdminProfile, updateAdminProfile, changeAdminPassword } from '../../services/profileService';
 
 export default function AdminProfile() {
   const [profile, setProfile] = useState({
-    nama: 'Admin Operator',
-    email: 'admin@madrasah.sch.id',
+    email: '',
     foto: null
   });
 
@@ -16,33 +16,151 @@ export default function AdminProfile() {
 
   const [previewFoto, setPreviewFoto] = useState(null);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+
+  // Ambil data profil admin dari API backend saat komponen dimuat
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
+
+  const fetchProfileData = async () => {
+    try {
+      setFetching(true);
+      const res = await getAdminProfile();
+      if (res.success && res.data) {
+        setProfile({
+          email: res.data.email || '',
+          foto: null
+        });
+
+        if (res.data.foto) {
+          setPreviewFoto(`http://localhost:5000/uploads/${res.data.foto}`);
+        }
+
+        // Update localStorage awal jika ada perbedaan
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUser = { ...storedUser, ...res.data };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        window.dispatchEvent(new Event('storage'));
+      }
+    } catch (err) {
+      console.error('Gagal mengambil data profil:', err);
+      setStatusMsg({
+        type: 'error',
+        text: err.response?.data?.message || 'Gagal memuat data profil admin.'
+      });
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setProfile({ ...profile, foto: file });
+      setProfile((prev) => ({ ...prev, foto: file }));
       setPreviewFoto(URL.createObjectURL(file));
     }
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    // API Call Update Profil
-    setStatusMsg({ type: 'success', text: 'Profil berhasil diperbarui!' });
-    setTimeout(() => setStatusMsg({ type: '', text: '' }), 3000);
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+      if (profile.email) formData.append('email', profile.email);
+
+      // 🛑 CEK: Hanya append foto ke FormData jika user memilih berkas File baru
+      if (profile.foto instanceof File) {
+        formData.append('foto', profile.foto);
+      }
+
+      const res = await updateAdminProfile(formData);
+      setStatusMsg({
+        type: 'success',
+        text: res.message || 'Profil berhasil diperbarui!'
+      });
+
+      // Reset state foto ke null agar submit berikutnya tidak mengirim ulang file yang sama
+      setProfile((prev) => ({ ...prev, foto: null }));
+
+      // 1. Perbarui foto preview dari respon backend jika ada
+      if (res.data?.foto) {
+        setPreviewFoto(`http://localhost:5000/uploads/${res.data.foto}`);
+      }
+
+      // 2. SINKRONISASI KE LOCALSTORAGE & EVENT STORAGE
+      const existingUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const updatedUserData = {
+        ...existingUser,
+        ...(res.data || {}),
+        email: profile.email || existingUser.email
+      };
+
+      localStorage.setItem('user', JSON.stringify(updatedUserData));
+
+      // Picu event storage agar Dashboard.jsx merender ulang foto di header
+      window.dispatchEvent(new Event('storage'));
+
+    } catch (err) {
+      console.error('Error save profile:', err);
+      setStatusMsg({
+        type: 'error',
+        text: err.response?.data?.message || 'Gagal memperbarui profil.'
+      });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setStatusMsg({ type: '', text: '' }), 3000);
+    }
   };
 
-  const handleSavePassword = (e) => {
+  const handleSavePassword = async (e) => {
     e.preventDefault();
+
+    if (!passwordData.passwordLama || !passwordData.passwordBaru) {
+      setStatusMsg({ type: 'error', text: 'Semua kolom password wajib diisi!' });
+      return;
+    }
+
     if (passwordData.passwordBaru !== passwordData.konfirmasiPassword) {
       setStatusMsg({ type: 'error', text: 'Konfirmasi password baru tidak cocok!' });
       return;
     }
-    // API Call Update Password
-    setStatusMsg({ type: 'success', text: 'Password berhasil diubah!' });
-    setPasswordData({ passwordLama: '', passwordBaru: '', konfirmasiPassword: '' });
-    setTimeout(() => setStatusMsg({ type: '', text: '' }), 3000);
+
+    setLoading(true);
+
+    try {
+      const res = await changeAdminPassword({
+        passwordLama: passwordData.passwordLama,
+        passwordBaru: passwordData.passwordBaru
+      });
+
+      setStatusMsg({
+        type: 'success',
+        text: res.message || 'Password berhasil diubah!'
+      });
+
+      setPasswordData({ passwordLama: '', passwordBaru: '', konfirmasiPassword: '' });
+    } catch (err) {
+      console.error('Error change password:', err);
+      setStatusMsg({
+        type: 'error',
+        text: err.response?.data?.message || 'Gagal mengubah password.'
+      });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setStatusMsg({ type: '', text: '' }), 3000);
+    }
   };
+
+  if (fetching) {
+    return (
+      <div className="p-8 text-center text-xs font-semibold text-gray-500">
+        Memuat data profil admin...
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -55,9 +173,11 @@ export default function AdminProfile() {
 
       {statusMsg.text && (
         <div className={`p-4 rounded-2xl flex items-center gap-3 text-xs font-semibold ${
-          statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+          statusMsg.type === 'success'
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : 'bg-red-50 text-red-700 border border-red-200'
         }`}>
-          <CheckCircle2 size={18} />
+          {statusMsg.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           {statusMsg.text}
         </div>
       )}
@@ -74,9 +194,9 @@ export default function AdminProfile() {
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-emerald-100 border-2 border-emerald-500 flex items-center justify-center overflow-hidden font-bold text-emerald-700 text-xl">
                 {previewFoto ? (
-                  <img src={previewFoto} alt="Preview" className="w-full h-full object-cover" />
+                  <img src={previewFoto} alt="Preview Foto Admin" className="w-full h-full object-cover" />
                 ) : (
-                  profile.nama.charAt(0)
+                  profile.email ? profile.email.charAt(0).toUpperCase() : 'A'
                 )}
               </div>
               <div>
@@ -89,17 +209,7 @@ export default function AdminProfile() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Nama Lengkap</label>
-              <input
-                type="text"
-                value={profile.nama}
-                onChange={(e) => setProfile({ ...profile, nama: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Email</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Email Akun</label>
               <input
                 type="email"
                 value={profile.email}
@@ -110,9 +220,10 @@ export default function AdminProfile() {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-sm shadow-emerald-200 cursor-pointer"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-sm shadow-emerald-200 cursor-pointer disabled:opacity-50"
             >
-              <Save size={16} /> Simpan Profil
+              <Save size={16} /> {loading ? 'Menyimpan...' : 'Simpan Profil'}
             </button>
           </form>
         </div>
@@ -157,9 +268,10 @@ export default function AdminProfile() {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-sm shadow-emerald-200 cursor-pointer"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-sm shadow-emerald-200 cursor-pointer disabled:opacity-50"
             >
-              <Save size={16} /> Ubah Password
+              <Save size={16} /> {loading ? 'Menyimpan...' : 'Ubah Password'}
             </button>
           </form>
         </div>

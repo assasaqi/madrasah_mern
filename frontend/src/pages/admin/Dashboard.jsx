@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -6,26 +6,61 @@ import {
   FileText,
   Megaphone,
   User,
-  Globe, // <-- Menambahkan Globe
+  Globe,
   LogOut,
   Building2,
   Menu,
   X,
-  ChevronRight
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 
 // Import komponen-komponen admin
-import AdminPublicProfile from './AdminPublicProfile'; // <-- Menambahkan Import
+import AdminPublicProfile from './AdminPublicProfile';
 import AdminPPDB from './AdminPPDB';
 import AdminBerita from './AdminBerita';
 import AdminPengumuman from './AdminPengumuman';
 import AdminProfile from './AdminProfile';
-AdminPublicProfile
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  const dropdownRef = useRef(null);
+
+  // Ambil & dengarkan perubahan data user di localStorage
+  useEffect(() => {
+    const loadUser = () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          setCurrentUser(JSON.parse(storedUser));
+        } catch (e) {
+          console.error('Error parsing stored user:', e);
+        }
+      }
+    };
+
+    loadUser(); // Muat data pertama kali
+
+    // Listener otomatis saat localStorage diperbarui oleh AdminProfile.jsx
+    window.addEventListener('storage', loadUser);
+    return () => window.removeEventListener('storage', loadUser);
+  }, []);
+
+  // Tutup dropdown jika klik di luar area profil
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -39,8 +74,10 @@ export default function Dashboard() {
     { id: 'ppdb', label: 'Verifikasi PPDB', icon: Users },
     { id: 'berita', label: 'Kelola Berita', icon: FileText },
     { id: 'pengumuman', label: 'Pengumuman', icon: Megaphone },
-    { id: 'profile', label: 'Edit Profil', icon: User },
   ];
+
+  // Penanganan fleksibel untuk properti foto/avatar
+  const photoPath = currentUser?.foto || currentUser?.avatar || currentUser?.image;
 
   return (
     <div className="min-h-screen bg-gray-50 flex font-sans text-gray-800">
@@ -113,21 +150,97 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* Konten Utama */}
+      {/* Area Utama */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-gray-200 py-3.5 px-4 lg:hidden flex items-center justify-between sticky top-0 z-30">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer"
-          >
-            <Menu size={20} />
-          </button>
-          <span className="font-bold text-sm text-gray-900">Panel Admin</span>
-          <div className="w-8" />
+        {/* Topbar / Header Utama */}
+        <header className="bg-white border-b border-gray-200 py-3 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer lg:hidden"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="font-bold text-sm text-gray-900 hidden sm:inline-block">
+              {activeTab === 'overview' && 'Dashboard Utama'}
+              {activeTab === 'public-profile' && 'Profil Sekolah'}
+              {activeTab === 'ppdb' && 'Verifikasi PPDB'}
+              {activeTab === 'berita' && 'Kelola Berita'}
+              {activeTab === 'pengumuman' && 'Pengumuman'}
+              {activeTab === 'profile' && 'Edit Profil Akun'}
+            </span>
+          </div>
+
+          {/* Profil User Pojok Kanan Atas */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+              className="flex items-center gap-2.5 p-1.5 rounded-2xl hover:bg-gray-100 transition cursor-pointer border border-transparent hover:border-gray-200"
+            >
+              <div className="w-9 h-9 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center overflow-hidden shrink-0">
+                {photoPath ? (
+                  <img
+                    src={
+                      photoPath.startsWith('http')
+                        ? photoPath
+                        : `http://localhost:5000/uploads/${photoPath}`
+                    }
+                    alt={currentUser?.nama || 'Admin'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback jika file foto di server tidak ditemukan/error
+                      e.target.onerror = null;
+                      setCurrentUser((prev) => ({ ...prev, foto: null }));
+                    }}
+                  />
+                ) : (
+                  <User className="text-emerald-700" size={18} />
+                )}
+              </div>
+              <div className="text-left hidden sm:block">
+                <p className="text-xs font-bold text-gray-900 leading-tight">
+                  {currentUser?.nama || currentUser?.email || 'Admin Madrasah'}
+                </p>
+                <p className="text-[10px] text-gray-400 capitalize">
+                  {currentUser?.role || 'Administrator'}
+                </p>
+              </div>
+              <ChevronDown size={16} className="text-gray-400" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {profileDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl border border-gray-100 shadow-lg py-1.5 z-50">
+                <div className="px-4 py-2 border-b border-gray-100 sm:hidden">
+                  <p className="text-xs font-bold text-gray-900">{currentUser?.nama || 'Admin'}</p>
+                  <p className="text-[10px] text-gray-400">{currentUser?.email || 'admin@madrasah.sch.id'}</p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setActiveTab('profile');
+                    setProfileDropdownOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer"
+                >
+                  <User size={16} /> Edit Profil Akun
+                </button>
+
+                <div className="my-1 border-t border-gray-100" />
+
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition cursor-pointer"
+                >
+                  <LogOut size={16} /> Keluar
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
+        {/* Konten Utama */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-          {/* Tampilan Overview */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
@@ -196,7 +309,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Render Komponen Tab Aktif */}
           {activeTab === 'public-profile' && <AdminPublicProfile />}
           {activeTab === 'ppdb' && <AdminPPDB />}
           {activeTab === 'berita' && <AdminBerita />}

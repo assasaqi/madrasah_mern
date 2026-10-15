@@ -1,35 +1,89 @@
-import React, { useState } from 'react';
-import { Building2, MapPin, Phone, Globe, Image as ImageIcon, Save, CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Building2, MapPin, Globe, Image as ImageIcon, Save, CheckCircle2, AlertCircle, Plus, Trash2 } from 'lucide-react';
+import { getAdminSchoolProfile, updateAdminSchoolProfile } from '../../services/profileService';
 
 export default function AdminPublicProfile() {
   const [profileData, setProfileData] = useState({
-    namaSekolah: 'MA Negeri 1 Contoh',
-    npsn: '12345678',
+    namaSekolah: '',
+    npsn: '',
     akreditasi: 'A',
-    tagline: 'Mewujudkan Generasi Islami, Cerdas, dan Berprestasi',
-    deskripsi: 'Madrasah Aliyah Negeri 1 adalah lembaga pendidikan menengah yang berkomitmen pada integrasi ilmu pengetahuan umum dan nilai-nilai keagamaan.',
-    alamat: 'Jl. Pendidikan No. 45, Kecamatan Kota, Kabupaten/Kota, Provinsi',
-    email: 'info@man1contoh.sch.id',
-    telepon: '021-1234567',
-    whatsapp: '081234567890',
-    mapsUrl: 'https://maps.google.com/...',
-    visi: 'Terwujudnya lulusan yang unggul dalam imtak dan iptek serta berwawasan lingkungan.',
-    misi: [
-      'Menyelenggarakan pendidikan berbasis kurikulum madrasah yang berkualitas.',
-      'Meningkatkan pembinaan karakter islami dan akhlakul karimah.',
-      'Mengembangkan bakat dan minat siswa melalui kegiatan ekstrakurikuler.'
-    ]
+    tagline: '',
+    deskripsi: '',
+    alamat: '',
+    email: '',
+    telepon: '',
+    whatsapp: '',
+    mapsUrl: '',
+    visi: '',
+    misi: ['']
   });
 
+  const [files, setFiles] = useState({ logo: null, banner: null });
   const [logoPreview, setLogoPreview] = useState(null);
   const [bannerPreview, setBannerPreview] = useState(null);
+
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+
+  // Ambil data profil sekolah dari API backend saat komponen dimuat
+  useEffect(() => {
+    fetchSchoolData();
+  }, []);
+
+  const fetchSchoolData = async () => {
+    try {
+      setFetching(true);
+      const res = await getAdminSchoolProfile();
+      if (res.success && res.data) {
+        const d = res.data;
+
+        // Parse array misi jika tersimpan dalam bentuk string/JSON
+        let parsedMisi = [''];
+        if (Array.isArray(d.misi) && d.misi.length > 0) {
+          parsedMisi = d.misi;
+        } else if (typeof d.misi === 'string') {
+          try {
+            parsedMisi = JSON.parse(d.misi);
+          } catch {
+            parsedMisi = [d.misi];
+          }
+        }
+
+        setProfileData({
+          namaSekolah: d.namaSekolah || '',
+          npsn: d.npsn || '',
+          akreditasi: d.akreditasi || 'A',
+          tagline: d.tagline || '',
+          deskripsi: d.deskripsi || '',
+          alamat: d.alamat || '',
+          email: d.email || '',
+          telepon: d.telepon || '',
+          whatsapp: d.whatsapp || '',
+          mapsUrl: d.mapsUrl || '',
+          visi: d.visi || '',
+          misi: parsedMisi
+        });
+
+        if (d.logo) setLogoPreview(`http://localhost:5000/uploads/${d.logo}`);
+        if (d.banner) setBannerPreview(`http://localhost:5000/uploads/${d.banner}`);
+      }
+    } catch (err) {
+      console.error('Error load school profile:', err);
+      setStatusMsg({
+        type: 'error',
+        text: err.response?.data?.message || 'Gagal memuat profil sekolah dari server.'
+      });
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const handleChange = (e) => {
     setProfileData({ ...profileData, [e.target.name]: e.target.value });
   };
 
-  // Handler Misi (Dynamic Array)
+  // Handler Dynamic Misi
   const handleMisiChange = (index, value) => {
     const updatedMisi = [...profileData.misi];
     updatedMisi[index] = value;
@@ -42,29 +96,81 @@ export default function AdminPublicProfile() {
 
   const removeMisi = (index) => {
     const updatedMisi = profileData.misi.filter((_, i) => i !== index);
-    setProfileData({ ...profileData, misi: updatedMisi });
+    setProfileData({ ...profileData, misi: updatedMisi.length ? updatedMisi : [''] });
   };
 
-  // Upload Logo & Banner
+  // Handler File Upload
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
-    if (file) setLogoPreview(URL.createObjectURL(file));
+    if (file) {
+      setFiles((prev) => ({ ...prev, logo: file }));
+      setLogoPreview(URL.createObjectURL(file));
+    }
   };
 
   const handleBannerChange = (e) => {
     const file = e.target.files[0];
-    if (file) setBannerPreview(URL.createObjectURL(file));
+    if (file) {
+      setFiles((prev) => ({ ...prev, banner: file }));
+      setBannerPreview(URL.createObjectURL(file));
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: Connect to backend API endpoint (PUT /api/admin/cms/profile-public)
-    setStatusMsg({ type: 'success', text: 'Profil publik berhasil diperbarui!' });
-    setTimeout(() => setStatusMsg({ type: '', text: '' }), 3000);
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+
+      // Append text inputs
+      Object.keys(profileData).forEach((key) => {
+        if (key === 'misi') {
+          const filteredMisi = profileData.misi.filter((m) => m.trim() !== '');
+          formData.append('misi', JSON.stringify(filteredMisi));
+        } else {
+          formData.append(key, profileData[key] || '');
+        }
+      });
+
+      // 🛑 CEK: Hanya append file media jika benar-benar bertipe File baru
+      if (files.logo instanceof File) formData.append('logo', files.logo);
+      if (files.banner instanceof File) formData.append('banner', files.banner);
+
+      const res = await updateAdminSchoolProfile(formData);
+
+      setStatusMsg({
+        type: 'success',
+        text: res.message || 'Profil publik sekolah berhasil diperbarui!'
+      });
+
+      // Reset state file agar submit berikutnya tidak mengirim ulang berkas yang sama
+      setFiles({ logo: null, banner: null });
+
+      if (res.data?.logo) setLogoPreview(`http://localhost:5000/uploads/${res.data.logo}`);
+      if (res.data?.banner) setBannerPreview(`http://localhost:5000/uploads/${res.data.banner}`);
+    } catch (err) {
+      console.error('Error submit school profile:', err);
+      setStatusMsg({
+        type: 'error',
+        text: err.response?.data?.message || 'Gagal menyimpan perubahan profil sekolah.'
+      });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setStatusMsg({ type: '', text: '' }), 3000);
+    }
   };
+
+  if (fetching) {
+    return (
+      <div className="p-8 text-center text-xs font-semibold text-gray-500">
+        Memuat data profil sekolah...
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="max-w-5xl space-y-6 pb-12">
       {/* Header Card */}
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
         <h1 className="text-xl font-bold text-gray-900">Kelola Profil Sekolah (Website Publik)</h1>
@@ -75,9 +181,11 @@ export default function AdminPublicProfile() {
 
       {statusMsg.text && (
         <div className={`p-4 rounded-2xl flex items-center gap-3 text-xs font-semibold ${
-          statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+          statusMsg.type === 'success'
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : 'bg-red-50 text-red-700 border border-red-200'
         }`}>
-          <CheckCircle2 size={18} />
+          {statusMsg.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           {statusMsg.text}
         </div>
       )}
@@ -314,9 +422,10 @@ export default function AdminPublicProfile() {
         <div className="flex justify-end pt-2">
           <button
             type="submit"
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-3 rounded-xl transition shadow-md shadow-emerald-200 cursor-pointer"
+            disabled={loading}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-3 rounded-xl transition shadow-md shadow-emerald-200 cursor-pointer disabled:opacity-50"
           >
-            <Save size={16} /> Simpan Seluruh Perubahan
+            <Save size={16} /> {loading ? 'Menyimpan...' : 'Simpan Seluruh Perubahan'}
           </button>
         </div>
       </form>
