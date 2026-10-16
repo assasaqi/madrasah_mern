@@ -9,7 +9,6 @@ import {
   Eye,
   Check,
   X,
-  LogOut,
   AlertCircle,
   FileText,
   RefreshCw,
@@ -28,6 +27,7 @@ export default function AdminPPDB({ hideHeader = false }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedPendaftar, setSelectedPendaftar] = useState(null);
+  const [catatanVerifikator, setCatatanVerifikator] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
@@ -74,22 +74,23 @@ export default function AdminPPDB({ hideHeader = false }) {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
   const handleUpdateStatus = async (id, newStatus) => {
     try {
       setActionLoading(true);
+      const payload = {
+        status: newStatus,
+        catatan: catatanVerifikator
+      };
+
       if (ppdbService && typeof ppdbService.updateStatus === 'function') {
-        await ppdbService.updateStatus(id, newStatus);
+        await ppdbService.updateStatus(id, newStatus, catatanVerifikator);
       } else {
-        await api.put(`/admin/ppdb/${id}/status`, { status: newStatus });
+        await api.put(`/admin/ppdb/${id}/status`, payload);
       }
+
       await fetchPendaftar();
       setSelectedPendaftar(null);
+      setCatatanVerifikator('');
     } catch (err) {
       console.error('Gagal memperbarui status:', err);
       alert(err?.response?.data?.message || 'Gagal memperbarui status pendaftaran.');
@@ -112,6 +113,11 @@ export default function AdminPPDB({ hideHeader = false }) {
     return fallback;
   };
 
+  const formatFileUrl = (path) => {
+    if (!path || path === '#') return '#';
+    return path.startsWith('http') ? path : `http://localhost:5000/uploads/${path}`;
+  };
+
   const filteredPendaftar = (Array.isArray(pendaftarList) ? pendaftarList : []).filter((item) => {
     const q = (searchQuery || '').toLowerCase().trim();
     const itemStatus = String(item.status || 'DITINJAU').toUpperCase();
@@ -128,6 +134,15 @@ export default function AdminPPDB({ hideHeader = false }) {
 
     return nama.includes(q) || noPendaftaran.includes(q) || asalSekolah.includes(q);
   });
+
+  // Hitung statistik
+  const stats = {
+    total: pendaftarList.length,
+    ditinjau: pendaftarList.filter(i => String(i.status || 'DITINJAU').toUpperCase() === 'DITINJAU').length,
+    lulusAdmin: pendaftarList.filter(i => String(i.status).toUpperCase() === 'LULUS_ADMINISTRASI').length,
+    lulusFinal: pendaftarList.filter(i => String(i.status).toUpperCase() === 'LULUS_FINAL').length,
+    ditolak: pendaftarList.filter(i => String(i.status).toUpperCase() === 'TIDAK_LULUS').length,
+  };
 
   const getStatusBadge = (status) => {
     const s = String(status || '').toUpperCase();
@@ -172,7 +187,6 @@ export default function AdminPPDB({ hideHeader = false }) {
 
   return (
     <div className="space-y-6 font-sans text-gray-800">
-      {/* Header bawaan (hanya dipanggil jika bukan dari dashboard layout terpadu) */}
       {!hideHeader && (
         <header className="bg-white border border-gray-100 p-5 rounded-3xl shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -193,28 +207,29 @@ export default function AdminPPDB({ hideHeader = false }) {
             >
               <RefreshCw size={14} /> Refresh
             </button>
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-3.5 py-2 rounded-xl transition border border-red-100 cursor-pointer"
-            >
-              <LogOut size={14} /> Keluar
-            </button>
           </div>
         </header>
       )}
 
-      {/* Banner Error */}
-      {errorMsg && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-between text-xs text-red-700">
-          <div className="flex items-center gap-2">
-            <AlertCircle size={16} />
-            <span><strong>Gagal memuat data:</strong> {errorMsg}</span>
-          </div>
-          <button onClick={fetchPendaftar} className="underline font-bold hover:text-red-900 cursor-pointer">
-            Coba Lagi
-          </button>
+      {/* Ringkasan Kartu Statistik */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs">
+          <p className="text-[11px] font-semibold text-gray-400">Total Pendaftar</p>
+          <p className="text-lg font-bold text-gray-900 mt-0.5">{stats.total} Siswa</p>
         </div>
-      )}
+        <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100/60 shadow-xs">
+          <p className="text-[11px] font-semibold text-amber-700">Perlu Ditinjau</p>
+          <p className="text-lg font-bold text-amber-900 mt-0.5">{stats.ditinjau} Siswa</p>
+        </div>
+        <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100/60 shadow-xs">
+          <p className="text-[11px] font-semibold text-emerald-700">Lulus Administrasi</p>
+          <p className="text-lg font-bold text-emerald-900 mt-0.5">{stats.lulusAdmin} Siswa</p>
+        </div>
+        <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/60 shadow-xs">
+          <p className="text-[11px] font-semibold text-blue-700">Lulus Final</p>
+          <p className="text-lg font-bold text-blue-900 mt-0.5">{stats.lulusFinal} Siswa</p>
+        </div>
+      </div>
 
       {/* Bar Filter & Pencarian */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-4">
@@ -300,9 +315,12 @@ export default function AdminPPDB({ hideHeader = false }) {
                       <td className="py-4 px-6">
                         {getStatusBadge(item.status)}
                       </td>
-                      <td className="py-4 px-6 text-center">
+                      <td className="py-4 px-6 text-center flex items-center justify-center gap-2">
                         <button
-                          onClick={() => setSelectedPendaftar(item)}
+                          onClick={() => {
+                            setSelectedPendaftar(item);
+                            setCatatanVerifikator(item.catatan || '');
+                          }}
                           className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-xl transition cursor-pointer"
                         >
                           <Eye size={14} /> Detail & Verifikasi
@@ -400,7 +418,7 @@ export default function AdminPPDB({ hideHeader = false }) {
                         };
                         const jenis = doc.jenisDokumen || doc.jenis || doc.type || '';
                         const docName = labelMap[jenis] || jenis || 'Dokumen Persyaratan';
-                        const fileLink = doc.fileUrl || doc.filePath || doc.url || '#';
+                        const fileLink = formatFileUrl(doc.fileUrl || doc.filePath || doc.url);
 
                         return (
                           <div key={doc.id || dIdx} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-xl">
@@ -429,6 +447,20 @@ export default function AdminPPDB({ hideHeader = false }) {
                   })()}
                 </div>
               </div>
+
+              {/* Input Catatan Verifikator */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                  Catatan Verifikator (Opsional / Alasan Penolakan):
+                </label>
+                <textarea
+                  value={catatanVerifikator}
+                  onChange={(e) => setCatatanVerifikator(e.target.value)}
+                  placeholder="Contoh: Berkas Pas Foto belum sesuai kriteria, mohon unggah ulang..."
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  rows={2}
+                />
+              </div>
             </div>
 
             <div className="pt-4 border-t border-gray-100 space-y-3">
@@ -441,7 +473,6 @@ export default function AdminPPDB({ hideHeader = false }) {
                   disabled={actionLoading}
                   onClick={() => handleUpdateStatus(selectedPendaftar.id, 'DITINJAU')}
                   className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition flex items-center gap-1.5 text-xs disabled:opacity-50 cursor-pointer"
-                  title="Kembalikan ke status awal peninjauan"
                 >
                   <RotateCcw size={14} /> Reset Ditinjau
                 </button>
