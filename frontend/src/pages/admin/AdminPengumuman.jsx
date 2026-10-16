@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Megaphone, Plus, Trash2, Edit, Calendar, Loader2, X, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { Megaphone, Plus, Trash2, Edit, Calendar, Loader2, X, FileText, CheckCircle, XCircle, Eye, ExternalLink, Download } from 'lucide-react';
 import api from '../../services/api';
 
 export default function AdminPengumuman() {
@@ -8,7 +8,10 @@ export default function AdminPengumuman() {
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
-  // State Edit & Form Inputs (disesuaikan dengan skema Prisma Backend)
+  // State Preview Berkas
+  const [previewFile, setPreviewFile] = useState(null); // { url, title, isPdf }
+
+  // State Edit & Form Inputs
   const [editId, setEditId] = useState(null);
   const [formData, setFormData] = useState({
     judul: '',
@@ -25,7 +28,6 @@ export default function AdminPengumuman() {
     try {
       setLoading(true);
       const res = await api.get('/admin/cms/pengumuman');
-      // Backend mengirim response: { success: true, data: [...] }
       setPengumumanList(res.data?.data || res.data || []);
     } catch (err) {
       console.error('Gagal memuat pengumuman:', err);
@@ -56,17 +58,31 @@ export default function AdminPengumuman() {
     setShowModal(true);
   };
 
+  // Handler untuk membuka modal preview berkas
+  const handleViewFile = (fileName, title) => {
+    const fileUrl = fileName.startsWith('http')
+      ? fileName
+      : `http://localhost:5000/uploads/${fileName}`;
+    const isPdf = fileName.toLowerCase().endsWith('.pdf');
+
+    setPreviewFile({
+      url: fileUrl,
+      title: title || 'Lampiran Pengumuman',
+      isPdf
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       setSubmitting(true);
 
-      // Gunakan FormData untuk mendukung pengiriman file lampiran
       const payload = new FormData();
       payload.append('judul', formData.judul);
       payload.append('konten', formData.konten);
       payload.append('isPublished', formData.isPublished);
-      if (lampiran) {
+
+      if (lampiran instanceof File) {
         payload.append('lampiran', lampiran);
       }
 
@@ -130,63 +146,76 @@ export default function AdminPengumuman() {
             <Loader2 className="animate-spin" size={18} /> Memuat pengumuman...
           </div>
         ) : pengumumanList.length > 0 ? (
-          pengumumanList.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-start gap-4 hover:border-emerald-200 transition-all"
-            >
-              <div className="space-y-2 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md inline-flex items-center gap-1">
-                    <Calendar size={12} /> {new Date(item.createdAt).toLocaleDateString('id-ID')}
-                  </span>
-                  {item.isPublished ? (
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded inline-flex items-center gap-1">
-                      <CheckCircle size={10} /> Aktif
+          pengumumanList.map((item) => {
+            // Ambil nama file dari berbagai skema field backend
+            const fileName = item.fileLampiran || item.lampiran || item.file || item.fileUrl;
+
+            return (
+              <div
+                key={item.id}
+                className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-start gap-4 hover:border-emerald-200 transition-all"
+              >
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md inline-flex items-center gap-1">
+                      <Calendar size={12} /> {new Date(item.createdAt).toLocaleDateString('id-ID')}
                     </span>
-                  ) : (
-                    <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded inline-flex items-center gap-1">
-                      <XCircle size={10} /> Draf
-                    </span>
+                    {item.isPublished ? (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded inline-flex items-center gap-1">
+                        <CheckCircle size={10} /> Aktif
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded inline-flex items-center gap-1">
+                        <XCircle size={10} /> Draf
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="font-bold text-gray-900 text-sm">{item.judul}</h3>
+                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{item.konten}</p>
+
+                  {/* Tombol Lihat Berkas Lampiran */}
+                  {fileName && (
+                    <div className="pt-2 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleViewFile(fileName, item.judul)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-100 rounded-xl text-[11px] font-semibold transition cursor-pointer"
+                      >
+                        <Eye size={14} /> Lihat Berkas
+                      </button>
+                      <a
+                        href={fileName.startsWith('http') ? fileName : `http://localhost:5000/uploads/${fileName}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700 font-semibold hover:underline"
+                      >
+                        <ExternalLink size={12} /> Buka Tab Baru
+                      </a>
+                    </div>
                   )}
                 </div>
 
-                <h3 className="font-bold text-gray-900 text-sm">{item.judul}</h3>
-                <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{item.konten}</p>
-
-                {item.fileLampiran && (
-                  <div className="pt-1">
-                    <a
-                      href={`http://localhost:5000/uploads/${item.fileLampiran}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-semibold hover:underline"
-                    >
-                      <FileText size={13} /> Lihat Lampiran File
-                    </a>
-                  </div>
-                )}
+                {/* Action Buttons */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleOpenEditModal(item)}
+                    className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition cursor-pointer"
+                    title="Edit Pengumuman"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                    title="Hapus Pengumuman"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleOpenEditModal(item)}
-                  className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition cursor-pointer"
-                  title="Edit Pengumuman"
-                >
-                  <Edit size={16} />
-                </button>
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition cursor-pointer"
-                  title="Hapus Pengumuman"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="col-span-2 py-12 text-center text-gray-400 bg-white rounded-2xl border border-gray-100 text-xs">
             Belum ada pengumuman resmi.
@@ -202,7 +231,7 @@ export default function AdminPengumuman() {
               <h3 className="font-bold text-sm text-gray-900">
                 {editId ? 'Edit Pengumuman' : 'Buat Pengumuman Baru'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
                 <X size={18} />
               </button>
             </div>
@@ -260,20 +289,75 @@ export default function AdminPengumuman() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
                   {submitting && <Loader2 className="animate-spin" size={14} />}
                   {editId ? 'Simpan Perubahan' : 'Terbitkan'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Preview Berkas / Lampiran */}
+      {previewFile && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-4xl w-full h-[85vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-2">
+                <FileText className="text-emerald-600" size={20} />
+                <div>
+                  <h3 className="font-bold text-sm text-gray-900 leading-tight">
+                    {previewFile.title}
+                  </h3>
+                  <p className="text-[11px] text-gray-400">Preview Lampiran Dokumen</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewFile.url}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition cursor-pointer"
+                  title="Unduh / Buka File"
+                >
+                  <Download size={18} />
+                </a>
+                <button
+                  onClick={() => setPreviewFile(null)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body / Media Container */}
+            <div className="flex-1 bg-gray-100 p-4 overflow-auto flex items-center justify-center">
+              {previewFile.isPdf ? (
+                <iframe
+                  src={previewFile.url}
+                  title="PDF Preview"
+                  className="w-full h-full rounded-2xl border-0 shadow-inner bg-white"
+                />
+              ) : (
+                <img
+                  src={previewFile.url}
+                  alt={previewFile.title}
+                  className="max-w-full max-h-full object-contain rounded-2xl shadow-md"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
