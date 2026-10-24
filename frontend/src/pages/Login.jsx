@@ -2,11 +2,11 @@ import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, LogIn, School, AlertCircle } from 'lucide-react';
 import { authService } from '../services/authService';
-import { AuthContext } from '../context/AuthContext'; // Import AuthContext
+import { AuthContext } from '../context/AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login: setAuthContext } = useContext(AuthContext); // Ambil fungsi login dari AuthContext
+  const { login: setAuthContext } = useContext(AuthContext);
 
   const [credentials, setCredentials] = useState({
     email: '',
@@ -16,10 +16,12 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Handle perubahan input form
   const handleChange = (e) => {
     setCredentials({ ...credentials, [e.target.name]: e.target.value });
   };
 
+  // Submit autentikasi user dan sanitasi pesan error
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -27,33 +29,38 @@ export default function Login() {
     try {
       setLoading(true);
       const data = await authService.login(credentials);
+      const user = data.user;
 
-      // Ambil data user & token
-      const user = data.user || data;
-      const token = data.token || user.token;
-
-      // Update state global via AuthContext
-      if (user && token) {
-        setAuthContext(user, token);
+      if (user) {
+        setAuthContext(user);
       }
 
-      // Normalisasi Role ke UPPERCASE
-      const rawRole = user?.role || data?.role || '';
-      const role = String(rawRole).toUpperCase().trim();
+      const role = String(user?.role || '').toUpperCase().trim();
 
-      // Pengalihan Rute Berdasarkan Role
-      if (role === 'ADMIN' || role === 'SUPERADMIN' || role === 'OPERATOR') {
+      if (['ADMIN', 'SUPERADMIN', 'OPERATOR'].includes(role)) {
         navigate('/admin/dashboard');
       } else if (role === 'GURU') {
         navigate('/guru/dashboard');
-      } else if (role === 'CALON_PENDAFTAR' || role === 'PENDAFTAR') {
+      } else if (['CALON_PENDAFTAR', 'PENDAFTAR'].includes(role)) {
         navigate('/ppdb/dashboard');
       } else {
         navigate('/dashboard');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Email atau kata sandi yang Anda masukkan salah.');
+      const serverMessage = err.response?.data?.message;
+      const isTechnicalError =
+        typeof serverMessage === 'string' &&
+        (serverMessage.includes('prisma') ||
+          serverMessage.includes('Database error') ||
+          serverMessage.includes('invocation') ||
+          serverMessage.includes('pool timeout'));
+
+      setError(
+        isTechnicalError || !serverMessage
+          ? 'Gagal masuk. Terjadi kendala sistem, silakan coba lagi beberapa saat lagi.'
+          : serverMessage
+      );
     } finally {
       setLoading(false);
     }

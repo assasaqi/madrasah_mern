@@ -144,6 +144,7 @@ model Pengumuman {
   judul       String
   slug        String   @unique
   konten      String   @db.Text
+  fileUrl     String?
   isPublished Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

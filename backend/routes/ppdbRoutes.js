@@ -25,14 +25,3 @@ router.patch(
 );
 
 module.exports = router;
-
-// Admin Only
-router.patch(
-  '/status/:id',
-  authenticateToken,
-  authorizeRoles('ADMIN'),
-  ppdbController.updateStatusPPDB
-);
-
-// PENTING: Jangan lupa baris ekspor ini agar tidak error di server.js!
-module.exports = router;

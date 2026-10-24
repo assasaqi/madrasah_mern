@@ -175,7 +175,13 @@ exports.updateSchoolProfile = async (req, res, next) => {
       ...(mapsUrl !== undefined && { mapsUrl }),
       ...(visi !== undefined && { visi }),
       ...(misi !== undefined && {
-        misi: typeof misi === 'string' ? JSON.parse(misi) : misi
+        misi: (() => {
+          if (Array.isArray(misi)) return misi;
+          if (typeof misi === 'string') {
+            try { return JSON.parse(misi); } catch (e) { return [misi]; }
+          }
+          return misi;
+        })()
       })
     };
 

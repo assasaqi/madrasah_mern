@@ -1,17 +1,20 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const prisma = require('../config/prisma');
+const prisma = require('../config/prisma'); // Menggunakan instance Prisma terpusat
+const env = require('../config/env'); // Wajib diimpor untuk JWT_SECRET & NODE_ENV
 
 // Register User (Calon Pendaftar / Admin / Guru / dll)
 exports.register = async (req, res, next) => {
   try {
-    const { email, password, role } = req.body;
+    const { email, password, role, nama } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Email dan password wajib diisi.' });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const cleanEmail = email.trim().toLowerCase();
+    const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
+
     if (existingUser) {
       return res.status(400).json({ message: 'Email sudah terdaftar.' });
     }
@@ -20,51 +23,93 @@ exports.register = async (req, res, next) => {
 
     const user = await prisma.user.create({
       data: {
-        email,
+        email: cleanEmail,
         password: hashedPassword,
-        role: role || 'CALON_PENDAFTAR', // Menerima role dari request body
+        role: role || 'CALON_PENDAFTAR',
       },
-      select: { id: true, email: true, role: true, createdAt: true },
+      select: { id: true, email: true, role: true, foto: true, createdAt: true },
     });
+
+    const displayName = nama ? nama.trim() : cleanEmail.split('@')[0];
 
     res.status(201).json({
       message: 'Registrasi berhasil. Silakan login untuk melanjutkan.',
-      user,
+      user: {
+        ...user,
+        nama: displayName
+      },
     });
   } catch (error) {
     next(error);
   }
 };
 
-// Login User (Semua Peran)
+// Login User dengan Implementasi HTTP-Only Cookie
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return res.status(401).json({ message: 'Email atau password salah.' });
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email dan password wajib diisi.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Email atau password salah.' });
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+      include: {
+        guruProfile: { select: { namaLengkap: true } },
+        siswaProfile: { select: { namaLengkap: true } },
+        pendaftaran: {
+          include: { biodata: { select: { namaLengkap: true } } }
+        }
+      }
+    });
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ message: 'Kredensial tidak valid.' });
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
+    const accessToken = jwt.sign(
+      { id: user.id, role: user.role },
+      env.JWT_ACCESS_SECRET,
+      { expiresIn: '15m' }
     );
 
-    res.json({
+    const refreshToken = jwt.sign(
+      { id: user.id },
+      env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000 // 15 Menit
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 Hari
+    });
+
+    const displayName =
+      user.guruProfile?.namaLengkap ||
+      user.siswaProfile?.namaLengkap ||
+      user.pendaftaran?.biodata?.namaLengkap ||
+      cleanEmail.split('@')[0];
+
+    res.status(200).json({
       message: 'Login berhasil',
-      token,
       user: {
         id: user.id,
         email: user.email,
         role: user.role,
-      },
+        foto: user.foto,
+        nama: displayName
+      }
     });
   } catch (error) {
     next(error);
@@ -80,16 +125,41 @@ exports.getMe = async (req, res, next) => {
         id: true,
         email: true,
         role: true,
+        foto: true,
         guruProfile: true,
         siswaProfile: true,
-        pendaftaran: true,
+        pendaftaran: {
+          include: {
+            biodata: true,
+            orangTua: true,
+            dokumen: true
+          }
+        },
       },
     });
 
     if (!user) return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
 
-    res.json({ user });
+    const displayName =
+      user.guruProfile?.namaLengkap ||
+      user.siswaProfile?.namaLengkap ||
+      user.pendaftaran?.biodata?.namaLengkap ||
+      user.email.split('@')[0];
+
+    res.json({
+      user: {
+        ...user,
+        nama: displayName
+      }
+    });
   } catch (error) {
     next(error);
   }
+};
+
+// Logout User & Bersihkan Cookie
+exports.logout = (req, res) => {
+  res.clearCookie('accessToken');
+  res.clearCookie('refreshToken');
+  res.status(200).json({ message: 'Logout berhasil.' });
 };

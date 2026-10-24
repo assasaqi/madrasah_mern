@@ -1,42 +1,34 @@
 const jwt = require('jsonwebtoken');
+const env = require('../config/env');
 
-// Verifikasi JWT Token
+// Verifikasi JWT dari HTTP-Only Cookie
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = req.cookies?.accessToken;
 
   if (!token) {
-    return res.status(401).json({
-      message: 'Akses ditolak. Token autentikasi tidak ditemukan.'
-    });
+    return res.status(401).json({ message: 'Akses ditolak. Token autentikasi tidak ditemukan.' });
   }
 
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
+    const verified = jwt.verify(token, env.JWT_ACCESS_SECRET);
     req.user = verified;
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        message: 'Sesi Anda telah berakhir. Silakan login kembali.'
-      });
+      return res.status(401).json({ message: 'Sesi Anda telah berakhir. Silakan login kembali.' });
     }
-    return res.status(401).json({
-      message: 'Token tidak valid.'
-    });
+    return res.status(401).json({ message: 'Token tidak valid.' });
   }
 };
 
-// Verifikasi Role (RBAC Tahan Case-Sensitive)
+// Verifikasi akses berdasarkan Role
 const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
     const userRole = String(req.user?.role || '').trim().toUpperCase();
     const uppercaseAllowed = allowedRoles.map((r) => String(r).trim().toUpperCase());
 
     if (!req.user || !uppercaseAllowed.includes(userRole)) {
-      return res.status(403).json({
-        message: 'Akses ditolak. Anda tidak memiliki izin untuk melakukan tindakan ini.'
-      });
+      return res.status(403).json({ message: 'Akses ditolak. Izin tidak mencukupi.' });
     }
     next();
   };

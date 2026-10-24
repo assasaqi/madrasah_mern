@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import { useNavigate, useLocation, Link, useOutletContext } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  FileEdit,
   Printer,
   LogOut,
-  School,
   User,
   CheckCircle2,
   Clock,
@@ -18,7 +15,6 @@ import {
   Loader2,
   Check,
   Menu,
-  X,
   ShieldCheck,
   Calendar,
   CreditCard,
@@ -26,27 +22,27 @@ import {
   Shield
 } from 'lucide-react';
 import api from '../../services/api';
+import { AuthContext } from '../../context/AuthContext';
+// Perbarui path impor dari folder ppdb ke subfolder documents
+import SuratKeteranganLulus from '../../components/ppdb/documents/SuratKeteranganLulus';
 
 export default function PPDBDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef(null);
+  const { user, login: setAuthContext } = useContext(AuthContext);
+  const { setSidebarOpen } = useOutletContext() || {};
 
-  const [user, setUser] = useState({});
   const [pendaftaran, setPendaftaran] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // State untuk kontrol dropdown profil di header
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
+  // Memuat data status pendaftaran PPDB pengguna saat komponen dipasang
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user') || '{}');
-    setUser(userData);
     fetchStatusPPDB();
   }, [location]);
 
-  // Event listener untuk menutup dropdown saat klik di luar area profil
+  // Menutup dropdown profil pengguna jika mengklik area di luar elemen
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -59,6 +55,7 @@ export default function PPDBDashboard() {
     };
   }, []);
 
+  // Mengambil status pendaftaran PPDB dari API backend
   const fetchStatusPPDB = async () => {
     try {
       setLoading(true);
@@ -75,12 +72,15 @@ export default function PPDBDashboard() {
     }
   };
 
+  // Memproses sesi keluar akun pendaftar dan membersihkan state global
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    if (setAuthContext) setAuthContext(null);
     navigate('/login');
   };
 
+  // Memicu dialog cetak dokumen bukti pendaftaran
   const handleCetakBukti = () => {
     window.print();
   };
@@ -95,6 +95,7 @@ export default function PPDBDashboard() {
 
   const hasAllDocs = totalUploadedDocs === 3;
 
+  // Menentukan lencana status pendaftaran berdasarkan kondisi saat ini
   const getStatusBadge = () => {
     switch (statusPPDB) {
       case 'DITINJAU':
@@ -137,7 +138,7 @@ export default function PPDBDashboard() {
       description: 'Registrasi akun portal PPDB berhasil dibuat.',
       isCompleted: true,
       isActive: false,
-      date: user.createdAt ? new Date(user.createdAt).toLocaleDateString('id-ID') : 'Selesai',
+      date: user?.createdAt ? new Date(user.createdAt).toLocaleDateString('id-ID') : 'Selesai',
     },
     {
       id: 2,
@@ -171,7 +172,7 @@ export default function PPDBDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-emerald-400 gap-2 font-sans">
+      <div className="py-16 flex items-center justify-center text-emerald-600 gap-2 font-sans">
         <Loader2 className="animate-spin" size={24} />
         <span className="text-sm font-medium">Memuat Dashboard PPDB...</span>
       </div>
@@ -179,9 +180,7 @@ export default function PPDBDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col md:flex-row">
-
-      {/* CSS Cetak A4 */}
+    <div className="flex-1 flex flex-col min-w-0">
       <style>{`
         @media print {
           @page {
@@ -195,531 +194,371 @@ export default function PPDBDashboard() {
         }
       `}</style>
 
-      {/* 1. SIDEBAR DASHBOARD */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-slate-300 transform transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:inset-auto flex flex-col justify-between print:hidden ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <div>
-          <div className="h-16 flex items-center justify-between px-6 bg-slate-950/50 border-b border-slate-800">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-900/50">
-                <School size={20} />
-              </div>
-              <div>
-                <h1 className="font-bold text-white text-sm tracking-wide">PORTAL PPDB</h1>
-                <p className="text-[10px] text-slate-400 font-medium">Dashboard Pendaftar</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="md:hidden text-slate-400 hover:text-white"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          <nav className="p-4 space-y-1.5 text-xs font-medium">
-            <div className="px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-              Menu Utama
-            </div>
-
-            <Link
-              to="/ppdb/dashboard"
-              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold shadow-md shadow-emerald-900/40"
-            >
-              <LayoutDashboard size={16} />
-              <span>Dashboard</span>
-            </Link>
-
-            <Link
-              to="/ppdb/formulir"
-              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition"
-            >
-              <FileEdit size={16} />
-              <span>Formulir & Dokumen</span>
-            </Link>
-          </nav>
-        </div>
-      </aside>
-
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden print:hidden"
-        />
-      )}
-
-      {/* 2. KONTEN UTAMA DASHBOARD */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-
-        {/* HEADER BAR DENGAN DROPDOWN PROFIL */}
-        <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20 print:hidden">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 md:hidden"
-            >
-              <Menu size={20} />
-            </button>
-            <div>
-              <h2 className="font-bold text-slate-900 text-sm sm:text-base">Ringkasan Sistem PPDB</h2>
-              <p className="text-[11px] text-slate-500 hidden sm:block">Status dan Garis Waktu Seleksi Penerimaan Siswa Baru</p>
-            </div>
-          </div>
-
-          {/* AREA KANAN HEADER: BADGE + DROPDOWN PROFIL */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block">{getStatusBadge()}</div>
-
-            {/* CONTAINER DROPDOWN PROFIL */}
-            <div className="relative pl-3 border-l border-slate-200" ref={dropdownRef}>
-              <button
-                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-slate-100 transition focus:outline-none cursor-pointer"
-                aria-label="Menu Profil Pengguna"
-              >
-                <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-emerald-200 border border-emerald-500">
-                  <User size={18} />
-                </div>
-                <div className="hidden md:block text-left max-w-[130px]">
-                  <p className="text-xs font-bold text-slate-900 truncate leading-tight">
-                    {pendaftaran?.biodata?.namaLengkap || user.nama || 'Pendaftar'}
-                  </p>
-                  <p className="text-[10px] text-slate-500 truncate leading-tight mt-0.5">
-                    {user.email}
-                  </p>
-                </div>
-                <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${profileDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* POPUP CARD PROFIL SAAT IKON DIKLIK */}
-              {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200/80 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                  {/* Header Popover */}
-                  <div className="p-4 bg-slate-900 text-white space-y-1">
-                    <p className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Detail Akun</p>
-                    <p className="text-sm font-bold truncate">
-                      {pendaftaran?.biodata?.namaLengkap || user.nama || 'Calon Siswa'}
-                    </p>
-                  </div>
-
-                  {/* Detail Informasi */}
-                  <div className="p-4 space-y-3 text-xs border-b border-slate-100">
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <Mail size={14} className="text-slate-400 shrink-0" />
-                      <span className="truncate">{user.email || '-'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <Shield size={14} className="text-slate-400 shrink-0" />
-                      <span className="capitalize">Role: {user.role?.toLowerCase() || 'pendaftar'}</span>
-                    </div>
-                    {pendaftaran?.nomorPendaftaran && (
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <CreditCard size={14} className="text-slate-400 shrink-0" />
-                        <span className="font-mono font-semibold text-slate-800">{pendaftaran.nomorPendaftaran}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Tombol Logout */}
-                  <div className="p-2 bg-slate-50">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition cursor-pointer"
-                    >
-                      <LogOut size={14} /> Keluar dari Akun
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* SURAT RESMI CETAK A4 (HANYA MUNCUL SAAT CETAK) */}
-        <div className="hidden print:block font-serif text-black max-w-[210mm] mx-auto leading-normal text-xs sm:text-sm">
-          <div className="border-b-4 border-double border-black pb-3 mb-5 text-center">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-gray-800">KEMENTERIAN AGAMA REPUBLIK INDONESIA</h4>
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-black">PANITIA PENERIMAAN PESERTA DIDIK BARU (PPDB)</h3>
-            <h2 className="text-lg font-black uppercase tracking-wide text-black mt-0.5">MADRASAH ALIYAH NEGERI 1</h2>
-            <p className="text-[11px] font-sans italic mt-1 text-gray-700">
-              Jl. Pendidikan No. 45, Kecamatan Kota, Kabupaten Nusantara | Telp: (021) 7654321 | Website: www.madrasah.sch.id
-            </p>
-          </div>
-
-          <div className="text-center my-5">
-            <h3 className="text-sm font-bold uppercase underline tracking-wider">SURAT KETERANGAN KELULUSAN PPDB</h3>
-            <p className="text-xs font-mono mt-0.5">Nomor: PPDB/SKL/2026/{pendaftaran?.nomorPendaftaran || '001'}</p>
-          </div>
-
-          <p className="mb-4 text-justify">
-            Panitia Penerimaan Peserta Didik Baru (PPDB) Madrasah Aliyah Negeri 1 menerangkan bahwa berdasarkan hasil verifikasi dokumen dan seluruh tahapan seleksi penerimaan peserta didik baru Tahun Ajaran 2026/2027, dengan ini menyatakan bahwa:
-          </p>
-
-          <table className="w-full my-4 text-xs border-collapse">
-            <tbody>
-              <tr>
-                <td className="py-1.5 w-44 font-semibold">Nomor Pendaftaran</td>
-                <td className="py-1.5 w-4 text-center">:</td>
-                <td className="py-1.5 font-bold font-mono text-sm">{pendaftaran?.nomorPendaftaran || '-'}</td>
-              </tr>
-              <tr>
-                <td className="py-1.5 font-semibold">Nama Lengkap Siswa</td>
-                <td className="py-1.5 text-center">:</td>
-                <td className="py-1.5 font-bold uppercase">{pendaftaran?.biodata?.namaLengkap || user?.nama || '-'}</td>
-              </tr>
-              <tr>
-                <td className="py-1.5 font-semibold">NISN / NIK</td>
-                <td className="py-1.5 text-center">:</td>
-                <td className="py-1.5">{pendaftaran?.biodata?.nisn || '-'} / {pendaftaran?.biodata?.nik || '-'}</td>
-              </tr>
-              <tr>
-                <td className="py-1.5 font-semibold">Tempat, Tanggal Lahir</td>
-                <td className="py-1.5 text-center">:</td>
-                <td className="py-1.5">
-                  {pendaftaran?.biodata?.tempatLahir || '-'}, {pendaftaran?.biodata?.tanggalLahir ? new Date(pendaftaran.biodata.tanggalLahir).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
-                </td>
-              </tr>
-              <tr>
-                <td className="py-1.5 font-semibold">Asal Sekolah</td>
-                <td className="py-1.5 text-center">:</td>
-                <td className="py-1.5">{pendaftaran?.biodata?.asalSekolah || '-'}</td>
-              </tr>
-              <tr>
-                <td className="py-1.5 font-semibold">Nama Orang Tua / Wali</td>
-                <td className="py-1.5 text-center">:</td>
-                <td className="py-1.5">{pendaftaran?.orangTua?.namaAyah || pendaftaran?.orangTua?.namaIbu || '-'}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div className="my-6 p-4 border-2 border-black text-center rounded-lg bg-gray-50/50">
-            <p className="text-xs uppercase tracking-widest font-bold text-gray-700">Dinyatakan:</p>
-            <p className="text-base sm:text-lg font-black uppercase tracking-widest mt-1 text-black">
-              {statusPPDB === 'LULUS_FINAL' ? 'LULUS SELEKSI FINAL / DITERIMA' : 'LULUS SELEKSI ADMINISTRASI'}
-            </p>
-            <p className="text-xs italic mt-1 text-gray-600">
-              Sebagai Peserta Didik Baru Tahun Ajaran 2026/2027
-            </p>
-          </div>
-
-          <p className="text-xs leading-relaxed mb-6 text-justify">
-            Demikian Surat Keterangan Kelulusan ini diterbitkan untuk dipergunakan sebagai bukti sah pendaftaran ulang serta verifikasi berkas fisik lanjutan.
-          </p>
-
-          <div className="flex justify-between items-end mt-12 text-xs">
-            <div className="text-center w-48">
-              <p className="mb-14">Ketua Panitia PPDB,</p>
-              <p className="font-bold underline uppercase">H. Ahmad Dahlan, M.Pd.</p>
-              <p className="text-[11px]">NIP. 19780512 200501 1 002</p>
-            </div>
-
-            <div className="text-center w-56">
-              <p className="mb-1">Nusantara, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              <p className="mb-14">Kepala Madrasah,</p>
-              <p className="font-bold underline uppercase">Drs. H. Muhammad Ridwan, M.Ag.</p>
-              <p className="text-[11px]">NIP. 19690315 199403 1 003</p>
-            </div>
+      <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20 print:hidden -mx-4 -mt-4 sm:-mx-8 sm:-mt-8 mb-6">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSidebarOpen && setSidebarOpen(true)}
+            className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 md:hidden cursor-pointer"
+          >
+            <Menu size={20} />
+          </button>
+          <div>
+            <h2 className="font-bold text-slate-900 text-sm sm:text-base">Ringkasan Sistem PPDB</h2>
+            <p className="text-[11px] text-slate-500 hidden sm:block">Status dan Garis Waktu Seleksi Penerimaan Siswa Baru</p>
           </div>
         </div>
 
-        {/* DASHBOARD DIGITAL */}
-        <main className="flex-1 p-4 sm:p-8 space-y-6 print:hidden">
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:block">{getStatusBadge()}</div>
 
-          {/* Banner Informasi Atas */}
-          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-2xl p-6 shadow-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 tracking-wider">
-                  Sistem PPDB Online
-                </span>
-                <span className="text-xs text-slate-400">• Gelombang {pendaftaran?.gelombang || '1'}</span>
+          <div className="relative pl-3 border-l border-slate-200" ref={dropdownRef}>
+            <button
+              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+              className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-slate-100 transition focus:outline-none cursor-pointer"
+            >
+              <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-emerald-200 border border-emerald-500">
+                <User size={18} />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                Selamat Datang, {pendaftaran?.biodata?.namaLengkap || user.nama || 'Calon Siswa'}!
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-                {hasBiodataOrtu
-                  ? `Nomor Pendaftaran Anda: ${pendaftaran.nomorPendaftaran}. Pantau ringkasan berkas dan garis waktu seleksi Anda secara langsung.`
-                  : 'Anda belum melengkapi formulir biodata pendaftaran. Silakan klik tombol di samping untuk melengkapi data.'}
-              </p>
-            </div>
+              <div className="hidden md:block text-left max-w-[130px]">
+                <p className="text-xs font-bold text-slate-900 truncate leading-tight">
+                  {pendaftaran?.biodata?.namaLengkap || user?.nama || 'Pendaftar'}
+                </p>
+                <p className="text-[10px] text-slate-500 truncate leading-tight mt-0.5">
+                  {user?.email || ''}
+                </p>
+              </div>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${profileDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-            {!hasBiodataOrtu ? (
-              <Link
-                to="/ppdb/formulir"
-                className="shrink-0 px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition shadow-lg flex items-center gap-2"
-              >
-                Isi Formulir Sekarang <ChevronRight size={16} />
-              </Link>
-            ) : (
-              <Link
-                to="/ppdb/formulir"
-                className="shrink-0 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl border border-slate-700 transition"
-              >
-                Edit Biodata
-              </Link>
+            {profileDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200/80 z-50 overflow-hidden">
+                <div className="p-4 bg-slate-900 text-white space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Detail Akun</p>
+                  <p className="text-sm font-bold truncate">
+                    {pendaftaran?.biodata?.namaLengkap || user?.nama || 'Calon Siswa'}
+                  </p>
+                </div>
+
+                <div className="p-4 space-y-3 text-xs border-b border-slate-100">
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Mail size={14} className="text-slate-400 shrink-0" />
+                    <span className="truncate">{user?.email || '-'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Shield size={14} className="text-slate-400 shrink-0" />
+                    <span className="capitalize">Role: {user?.role?.toLowerCase() || 'pendaftar'}</span>
+                  </div>
+                  {pendaftaran?.nomorPendaftaran && (
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <CreditCard size={14} className="text-slate-400 shrink-0" />
+                      <span className="font-mono font-semibold text-slate-800">{pendaftaran.nomorPendaftaran}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-2 bg-slate-50">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition cursor-pointer"
+                  >
+                    <LogOut size={14} /> Keluar dari Akun
+                  </button>
+                </div>
+              </div>
             )}
           </div>
+        </div>
+      </header>
 
-          {/* METRIC CARDS OVERVIEW */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">Status Seleksi</span>
-                <div className="mt-1">{getStatusBadge()}</div>
-              </div>
-              <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-                <ShieldCheck size={22} />
-              </div>
+      <SuratKeteranganLulus pendaftaran={pendaftaran} user={user} />
+
+      <div className="space-y-6 print:hidden">
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-2xl p-6 shadow-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 tracking-wider">
+                Sistem PPDB Online
+              </span>
+              <span className="text-xs text-slate-400">• Gelombang {pendaftaran?.gelombang || '1'}</span>
             </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Selamat Datang, {pendaftaran?.biodata?.namaLengkap || user?.nama || 'Calon Siswa'}!
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              {hasBiodataOrtu
+                ? `Nomor Pendaftaran Anda: ${pendaftaran.nomorPendaftaran}. Pantau ringkasan berkas dan garis waktu seleksi Anda secara langsung.`
+                : 'Anda belum melengkapi formulir biodata pendaftaran. Silakan klik tombol di samping untuk melengkapi data.'}
+            </p>
+          </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">No. Pendaftaran</span>
-                <p className="text-sm font-bold font-mono text-slate-900">
-                  {pendaftaran?.nomorPendaftaran || 'Belum Terbit'}
-                </p>
-              </div>
-              <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <CreditCard size={22} />
-              </div>
+          {!hasBiodataOrtu ? (
+            <Link
+              to="/ppdb/formulir"
+              className="shrink-0 px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition shadow-lg flex items-center gap-2"
+            >
+              Isi Formulir Sekarang <ChevronRight size={16} />
+            </Link>
+          ) : (
+            <Link
+              to="/ppdb/formulir"
+              className="shrink-0 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl border border-slate-700 transition"
+            >
+              Edit Biodata
+            </Link>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">Status Seleksi</span>
+              <div className="mt-1">{getStatusBadge()}</div>
             </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">Kelengkapan Berkas</span>
-                <p className="text-sm font-bold text-slate-900">
-                  {totalUploadedDocs} / 3 Dokumen
-                </p>
-              </div>
-              <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                <FileCheck size={22} />
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">Tgl Pembaruan</span>
-                <p className="text-xs font-semibold text-slate-800">
-                  {pendaftaran?.updatedAt ? new Date(pendaftaran.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
-                </p>
-              </div>
-              <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                <Calendar size={22} />
-              </div>
+            <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <ShieldCheck size={22} />
             </div>
           </div>
 
-          {/* BANNER NOTIFIKASI DENGAN TUNGGAL TOMBOL CETAK */}
-          {statusPPDB === 'LULUS_ADMINISTRASI' && (
-            <div className="bg-emerald-500 text-white p-5 sm:p-6 rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase bg-white/20 text-white">
-                  <CheckCircle2 size={12} /> Pengumuman
-                </span>
-                <h3 className="text-lg font-extrabold">Selamat! Anda Dinyatakan LULUS Administrasi</h3>
-                <p className="text-xs text-emerald-100 max-w-2xl leading-relaxed">
-                  Berkas Anda telah terverifikasi. Silakan cetak Surat Keterangan Lulus resmi untuk dibawa saat proses verifikasi fisik lanjutan.
-                </p>
-              </div>
-              <button
-                onClick={handleCetakBukti}
-                className="shrink-0 px-4 py-2.5 bg-white text-emerald-950 font-bold text-xs rounded-xl shadow-sm hover:bg-emerald-50 transition flex items-center gap-2 cursor-pointer"
-              >
-                <Printer size={15} /> Cetak
-              </button>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">No. Pendaftaran</span>
+              <p className="text-sm font-bold font-mono text-slate-900">
+                {pendaftaran?.nomorPendaftaran || 'Belum Terbit'}
+              </p>
             </div>
-          )}
-
-          {statusPPDB === 'LULUS_FINAL' && (
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 sm:p-6 rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase bg-white/20 text-white">
-                  <Award size={12} /> Seleksi Final
-                </span>
-                <h3 className="text-lg font-extrabold">Selamat! Anda Diterima Sebagai Siswa Baru</h3>
-                <p className="text-xs text-blue-100 max-w-2xl leading-relaxed">
-                  Selamat bergabung! Silakan lakukan cetak bukti kelulusan final dan daftar ulang di sekretariat PPDB.
-                </p>
-              </div>
-              <button
-                onClick={handleCetakBukti}
-                className="shrink-0 px-4 py-2.5 bg-white text-blue-950 font-bold text-xs rounded-xl shadow-sm hover:bg-blue-50 transition flex items-center gap-2 cursor-pointer"
-              >
-                <Printer size={15} /> Cetak
-              </button>
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <CreditCard size={22} />
             </div>
-          )}
+          </div>
 
-          {/* ALUR TIMELINE & RINGKASAN DATA */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Alur & Garis Waktu Seleksi</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Tahapan pendaftaran dan verifikasi status real-time</p>
-                </div>
-                {hasBiodataOrtu && (
-                  <Link
-                    to="/ppdb/formulir"
-                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl transition"
-                  >
-                    Edit Data
-                  </Link>
-                )}
-              </div>
-
-              <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-[15px] sm:before:left-[19px] before:top-2.5 before:bottom-2.5 before:w-0.5 before:bg-slate-200">
-                {timelineSteps.map((step) => (
-                  <div key={step.id} className="relative group">
-                    <div
-                      className={`absolute -left-[24px] sm:-left-[32px] top-0.5 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition shadow-sm ${
-                        step.isCompleted
-                          ? 'bg-emerald-600 border-emerald-600 text-white'
-                          : step.isActive
-                          ? 'bg-amber-500 border-amber-500 text-white animate-pulse'
-                          : 'bg-white border-slate-300 text-slate-400'
-                      }`}
-                    >
-                      {step.isCompleted ? <Check size={16} /> : step.id}
-                    </div>
-
-                    <div
-                      className={`p-4 rounded-xl border transition ${
-                        step.isActive
-                          ? 'bg-amber-50/60 border-amber-200'
-                          : step.isCompleted
-                          ? 'bg-emerald-50/30 border-emerald-100'
-                          : 'bg-slate-50/60 border-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <h4 className="font-bold text-sm text-slate-900">{step.title}</h4>
-                        <span
-                          className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                            step.isCompleted
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : step.isActive
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-slate-200 text-slate-600'
-                          }`}
-                        >
-                          {step.date}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed">{step.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">Kelengkapan Berkas</span>
+              <p className="text-sm font-bold text-slate-900">
+                {totalUploadedDocs} / 3 Dokumen
+              </p>
             </div>
+            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <FileCheck size={22} />
+            </div>
+          </div>
 
-            {/* Ringkasan & Lampiran */}
-            <div className="space-y-6">
-              {hasBiodataOrtu ? (
-                <>
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
-                      <FileText size={18} className="text-emerald-600" /> Ringkasan Biodata
-                    </h3>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">Tgl Pembaruan</span>
+              <p className="text-xs font-semibold text-slate-800">
+                {pendaftaran?.updatedAt ? new Date(pendaftaran.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <Calendar size={22} />
+            </div>
+          </div>
+        </div>
 
-                    <div className="space-y-3 text-xs">
-                      <div>
-                        <span className="text-slate-400 block font-medium">Nama Lengkap Siswa</span>
-                        <span className="font-bold text-slate-800">{pendaftaran.biodata?.namaLengkap}</span>
-                      </div>
+        {statusPPDB === 'LULUS_ADMINISTRASI' && (
+          <div className="bg-emerald-500 text-white p-5 sm:p-6 rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase bg-white/20 text-white">
+                <CheckCircle2 size={12} /> Pengumuman
+              </span>
+              <h3 className="text-lg font-extrabold">Selamat! Anda Dinyatakan LULUS Administrasi</h3>
+              <p className="text-xs text-emerald-100 max-w-2xl leading-relaxed">
+                Berkas Anda telah terverifikasi. Silakan cetak Surat Keterangan Lulus resmi untuk dibawa saat proses verifikasi fisik lanjutan.
+              </p>
+            </div>
+            <button
+              onClick={handleCetakBukti}
+              className="shrink-0 px-4 py-2.5 bg-white text-emerald-950 font-bold text-xs rounded-xl shadow-sm hover:bg-emerald-50 transition flex items-center gap-2 cursor-pointer"
+            >
+              <Printer size={15} /> Cetak
+            </button>
+          </div>
+        )}
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <span className="text-slate-400 block font-medium">NIK</span>
-                          <span className="font-semibold text-slate-800">{pendaftaran.biodata?.nik || '-'}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block font-medium">NISN</span>
-                          <span className="font-semibold text-slate-800">{pendaftaran.biodata?.nisn || '-'}</span>
-                        </div>
-                      </div>
+        {statusPPDB === 'LULUS_FINAL' && (
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 sm:p-6 rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase bg-white/20 text-white">
+                <Award size={12} /> Seleksi Final
+              </span>
+              <h3 className="text-lg font-extrabold">Selamat! Anda Diterima Sebagai Siswa Baru</h3>
+              <p className="text-xs text-blue-100 max-w-2xl leading-relaxed">
+                Selamat bergabung! Silakan lakukan cetak bukti kelulusan final dan daftar ulang di sekretariat PPDB.
+              </p>
+            </div>
+            <button
+              onClick={handleCetakBukti}
+              className="shrink-0 px-4 py-2.5 bg-white text-blue-950 font-bold text-xs rounded-xl shadow-sm hover:bg-blue-50 transition flex items-center gap-2 cursor-pointer"
+            >
+              <Printer size={15} /> Cetak
+            </button>
+          </div>
+        )}
 
-                      <div>
-                        <span className="text-slate-400 block font-medium">Asal Sekolah</span>
-                        <span className="font-semibold text-slate-800">{pendaftaran.biodata?.asalSekolah}</span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-                        <div>
-                          <span className="text-slate-400 block font-medium">Nama Ayah</span>
-                          <span className="font-semibold text-slate-800">{pendaftaran.orangTua?.namaAyah}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block font-medium">Nama Ibu</span>
-                          <span className="font-semibold text-slate-800">{pendaftaran.orangTua?.namaIbu}</span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className="text-slate-400 block font-medium">No. WhatsApp Wali</span>
-                        <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-block">
-                          {pendaftaran.orangTua?.noHpAyah || pendaftaran.orangTua?.noHpIbu || '-'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
-                      <FileCheck size={18} className="text-emerald-600" /> Dokumen Terlampir
-                    </h3>
-
-                    <div className="space-y-2">
-                      {['KARTU_KELUARGA', 'AKTA_KELAHIRAN', 'PAS_FOTO'].map((docType) => {
-                        const isUploaded = pendaftaran.dokumen?.some((d) => d.jenisDokumen === docType);
-                        const labelMap = {
-                          KARTU_KELUARGA: 'Kartu Keluarga (KK)',
-                          AKTA_KELAHIRAN: 'Akta Kelahiran',
-                          PAS_FOTO: 'Pas Foto 3x4',
-                        };
-
-                        return (
-                          <div
-                            key={docType}
-                            className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs"
-                          >
-                            <span className="font-medium text-slate-700">{labelMap[docType]}</span>
-                            {isUploaded ? (
-                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                <Check size={12} /> Terunggah
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
-                                Belum
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="bg-emerald-50/70 p-6 rounded-2xl border border-emerald-100 space-y-3 text-xs text-emerald-950">
-                  <h4 className="font-bold text-sm text-emerald-950">Petunjuk Pendaftaran</h4>
-                  <p className="leading-relaxed">
-                    Lengkapi data formulir pendaftaran serta unggah hasil scan Kartu Keluarga, Akta Kelahiran, dan Pas Foto untuk memproses verifikasi.
-                  </p>
-                  <Link
-                    to="/ppdb/formulir"
-                    className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-800 underline pt-1"
-                  >
-                    Mulai Pengisian Formulir <ChevronRight size={14} />
-                  </Link>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Alur & Garis Waktu Seleksi</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Tahapan pendaftaran dan verifikasi status real-time</p>
+              </div>
+              {hasBiodataOrtu && (
+                <Link
+                  to="/ppdb/formulir"
+                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl transition"
+                >
+                  Edit Data
+                </Link>
               )}
             </div>
+
+            <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-[15px] sm:before:left-[19px] before:top-2.5 before:bottom-2.5 before:w-0.5 before:bg-slate-200">
+              {timelineSteps.map((step) => (
+                <div key={step.id} className="relative group">
+                  <div
+                    className={`absolute -left-[24px] sm:-left-[32px] top-0.5 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition shadow-sm ${
+                      step.isCompleted
+                        ? 'bg-emerald-600 border-emerald-600 text-white'
+                        : step.isActive
+                        ? 'bg-amber-500 border-amber-500 text-white animate-pulse'
+                        : 'bg-white border-slate-300 text-slate-400'
+                    }`}
+                  >
+                    {step.isCompleted ? <Check size={16} /> : step.id}
+                  </div>
+
+                  <div
+                    className={`p-4 rounded-xl border transition ${
+                      step.isActive
+                        ? 'bg-amber-50/60 border-amber-200'
+                        : step.isCompleted
+                        ? 'bg-emerald-50/30 border-emerald-100'
+                        : 'bg-slate-50/60 border-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <h4 className="font-bold text-sm text-slate-900">{step.title}</h4>
+                      <span
+                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                          step.isCompleted
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : step.isActive
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {step.date}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">{step.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </main>
+
+          <div className="space-y-6">
+            {hasBiodataOrtu ? (
+              <>
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                  <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+                    <FileText size={18} className="text-emerald-600" /> Ringkasan Biodata
+                  </h3>
+
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <span className="text-slate-400 block font-medium">Nama Lengkap Siswa</span>
+                      <span className="font-bold text-slate-800">{pendaftaran.biodata?.namaLengkap}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-slate-400 block font-medium">NIK</span>
+                        <span className="font-semibold text-slate-800">{pendaftaran.biodata?.nik || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block font-medium">NISN</span>
+                        <span className="font-semibold text-slate-800">{pendaftaran.biodata?.nisn || '-'}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-400 block font-medium">Asal Sekolah</span>
+                      <span className="font-semibold text-slate-800">{pendaftaran.biodata?.asalSekolah}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                      <div>
+                        <span className="text-slate-400 block font-medium">Nama Ayah</span>
+                        <span className="font-semibold text-slate-800">{pendaftaran.orangTua?.namaAyah}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block font-medium">Nama Ibu</span>
+                        <span className="font-semibold text-slate-800">{pendaftaran.orangTua?.namaIbu}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-400 block font-medium">No. WhatsApp Wali</span>
+                      <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-block">
+                        {pendaftaran.orangTua?.noHpAyah || pendaftaran.orangTua?.noHpIbu || '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                  <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+                    <FileCheck size={18} className="text-emerald-600" /> Dokumen Terlampir
+                  </h3>
+
+                  <div className="space-y-2">
+                    {['KARTU_KELUARGA', 'AKTA_KELAHIRAN', 'PAS_FOTO'].map((docType) => {
+                      const isUploaded = pendaftaran.dokumen?.some((d) => d.jenisDokumen === docType);
+                      const labelMap = {
+                        KARTU_KELUARGA: 'Kartu Keluarga (KK)',
+                        AKTA_KELAHIRAN: 'Akta Kelahiran',
+                        PAS_FOTO: 'Pas Foto 3x4',
+                      };
+
+                      return (
+                        <div
+                          key={docType}
+                          className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs"
+                        >
+                          <span className="font-medium text-slate-700">{labelMap[docType]}</span>
+                          {isUploaded ? (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Check size={12} /> Terunggah
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
+                              Belum
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-emerald-50/70 p-6 rounded-2xl border border-emerald-100 space-y-3 text-xs text-emerald-950">
+                <h4 className="font-bold text-sm text-emerald-950">Petunjuk Pendaftaran</h4>
+                <p className="leading-relaxed">
+                  Lengkapi data formulir pendaftaran serta unggah hasil scan Kartu Keluarga, Akta Kelahiran, dan Pas Foto untuk memproses verifikasi.
+                </p>
+                <Link
+                  to="/ppdb/formulir"
+                  className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-800 underline pt-1"
+                >
+                  Mulai Pengisian Formulir <ChevronRight size={14} />
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

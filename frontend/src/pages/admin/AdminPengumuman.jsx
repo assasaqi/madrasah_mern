@@ -2,16 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Megaphone, Plus, Trash2, Edit, Calendar, Loader2, X, FileText, CheckCircle, XCircle, Eye, ExternalLink, Download } from 'lucide-react';
 import api from '../../services/api';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function AdminPengumuman() {
   const [pengumumanList, setPengumumanList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
-
-  // State Preview Berkas
-  const [previewFile, setPreviewFile] = useState(null); // { url, title, isPdf }
-
-  // State Edit & Form Inputs
+  const [previewFile, setPreviewFile] = useState(null);
   const [editId, setEditId] = useState(null);
   const [formData, setFormData] = useState({
     judul: '',
@@ -20,10 +18,12 @@ export default function AdminPengumuman() {
   });
   const [lampiran, setLampiran] = useState(null);
 
+  // Ambil data pengumuman saat komponen pertama kali dimuat
   useEffect(() => {
     fetchPengumuman();
   }, []);
 
+  // Memuat daftar pengumuman resmi dari API backend
   const fetchPengumuman = async () => {
     try {
       setLoading(true);
@@ -36,17 +36,20 @@ export default function AdminPengumuman() {
     }
   };
 
+  // Mereset nilai masukan formulir ke kondisi awal
   const resetForm = () => {
     setFormData({ judul: '', konten: '', isPublished: true });
     setLampiran(null);
     setEditId(null);
   };
 
+  // Membuka modal untuk pembuatan pengumuman baru
   const handleOpenAddModal = () => {
     resetForm();
     setShowModal(true);
   };
 
+  // Membuka modal untuk penyuntingan pengumuman terpilih
   const handleOpenEditModal = (item) => {
     setEditId(item.id);
     setFormData({
@@ -58,11 +61,11 @@ export default function AdminPengumuman() {
     setShowModal(true);
   };
 
-  // Handler untuk membuka modal preview berkas
+  // Menampilkan berkas lampiran dokumen dalam jendela pratinjau
   const handleViewFile = (fileName, title) => {
     const fileUrl = fileName.startsWith('http')
       ? fileName
-      : `http://localhost:5000/uploads/${fileName}`;
+      : `${API_BASE_URL}/uploads/${fileName.replace(/^\/uploads\//, '')}`;
     const isPdf = fileName.toLowerCase().endsWith('.pdf');
 
     setPreviewFile({
@@ -72,6 +75,7 @@ export default function AdminPengumuman() {
     });
   };
 
+  // Mengirimkan formulir pengumuman baru atau pembaruan ke API backend
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -102,12 +106,16 @@ export default function AdminPengumuman() {
       resetForm();
       fetchPengumuman();
     } catch (err) {
-      alert(err.response?.data?.message || 'Gagal menyimpan pengumuman.');
+      console.error('Gagal menyimpan pengumuman:', err);
+      const serverMsg = err.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
+      alert(isTechError || !serverMsg ? 'Gagal menyimpan pengumuman. Terjadi kendala sistem pada server.' : serverMsg);
     } finally {
       setSubmitting(false);
     }
   };
 
+  // Menghapus item pengumuman berdasarkan ID
   const handleDelete = async (id) => {
     if (!window.confirm('Hapus pengumuman ini?')) return;
     try {
@@ -115,13 +123,16 @@ export default function AdminPengumuman() {
       setPengumumanList((prev) => prev.filter((p) => p.id !== id));
       alert('Pengumuman berhasil dihapus.');
     } catch (err) {
-      alert('Gagal menghapus pengumuman.');
+      console.error('Gagal menghapus pengumuman:', err);
+      const serverMsg = err.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
+      alert(isTechError || !serverMsg ? 'Gagal menghapus pengumuman. Terjadi kendala pada server.' : serverMsg);
     }
   };
 
   return (
-    <div className="space-y-6 font-sans">
-      {/* Header Page */}
+    <div className="space-y-6 font-sans text-gray-800">
+      {/* Header Halaman */}
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -139,7 +150,7 @@ export default function AdminPengumuman() {
         </button>
       </div>
 
-      {/* Grid Pengumuman List */}
+      {/* Grid Pengumuman */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {loading ? (
           <div className="col-span-2 py-12 text-center text-emerald-600 flex justify-center items-center gap-2 text-xs">
@@ -147,8 +158,10 @@ export default function AdminPengumuman() {
           </div>
         ) : pengumumanList.length > 0 ? (
           pengumumanList.map((item) => {
-            // Ambil nama file dari berbagai skema field backend
             const fileName = item.fileLampiran || item.lampiran || item.file || item.fileUrl;
+            const fileFullUrl = fileName
+              ? (fileName.startsWith('http') ? fileName : `${API_BASE_URL}/uploads/${fileName.replace(/^\/uploads\//, '')}`)
+              : null;
 
             return (
               <div
@@ -174,7 +187,7 @@ export default function AdminPengumuman() {
                   <h3 className="font-bold text-gray-900 text-sm">{item.judul}</h3>
                   <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{item.konten}</p>
 
-                  {/* Tombol Lihat Berkas Lampiran */}
+                  {/* Tombol Berkas Lampiran */}
                   {fileName && (
                     <div className="pt-2 flex items-center gap-3">
                       <button
@@ -185,7 +198,7 @@ export default function AdminPengumuman() {
                         <Eye size={14} /> Lihat Berkas
                       </button>
                       <a
-                        href={fileName.startsWith('http') ? fileName : `http://localhost:5000/uploads/${fileName}`}
+                        href={fileFullUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700 font-semibold hover:underline"
@@ -196,7 +209,7 @@ export default function AdminPengumuman() {
                   )}
                 </div>
 
-                {/* Action Buttons */}
+                {/* Tombol Aksi */}
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => handleOpenEditModal(item)}
@@ -311,7 +324,6 @@ export default function AdminPengumuman() {
       {previewFile && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-4xl w-full h-[85vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden">
-            {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2">
                 <FileText className="text-emerald-600" size={20} />
@@ -342,7 +354,6 @@ export default function AdminPengumuman() {
               </div>
             </div>
 
-            {/* Modal Body / Media Container */}
             <div className="flex-1 bg-gray-100 p-4 overflow-auto flex items-center justify-center">
               {previewFile.isPdf ? (
                 <iframe

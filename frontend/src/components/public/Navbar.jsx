@@ -3,34 +3,31 @@ import { Link, useNavigate } from 'react-router-dom';
 import { School, LogIn, LayoutDashboard, LogOut, User } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
 export default function Navbar() {
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useContext(AuthContext);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Menentukan rute dashboard berdasarkan role user
+  // Menentukan rute dashboard berdasarkan peran pengguna
   const getDashboardPath = () => {
-    const rawRole = user?.role || '';
-    const role = String(rawRole).toUpperCase().trim();
-
-    if (role === 'ADMIN' || role === 'SUPERADMIN' || role === 'OPERATOR') {
-      return '/admin/dashboard';
-    } else if (role === 'GURU') {
-      return '/guru/dashboard';
-    } else if (role === 'CALON_PENDAFTAR' || role === 'PENDAFTAR') {
-      return '/ppdb/dashboard';
-    }
+    const role = String(user?.role || '').toUpperCase().trim();
+    if (['ADMIN', 'SUPERADMIN', 'OPERATOR'].includes(role)) return '/admin/dashboard';
+    if (role === 'GURU') return '/guru/dashboard';
+    if (['CALON_PENDAFTAR', 'PENDAFTAR'].includes(role)) return '/ppdb/dashboard';
     return '/dashboard';
   };
 
-  const handleLogout = () => {
+  // Memproses logout dan navigasi ke beranda
+  const handleLogout = async () => {
     setDropdownOpen(false);
-    logout();
+    await logout();
     navigate('/');
   };
 
-  // Menutup dropdown ketika pengguna mengklik di luar elemen
+  // Menutup dropdown saat klik di luar elemen
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -41,12 +38,15 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Ambil inisial nama pengguna
-  const userName = user?.nama || user?.name || '';
+  const userName = user?.nama || user?.name || 'Pengguna';
   const initial = userName.charAt(0).toUpperCase();
+  const photoPath = user?.foto || user?.avatar || user?.image;
+  const photoUrl = photoPath
+    ? (photoPath.startsWith('http') ? photoPath : `${API_BASE_URL}/uploads/${photoPath.replace(/^\/uploads\//, '')}`)
+    : null;
 
   return (
-    <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <header className="bg-white border-b border-gray-100 sticky top-0 z-50 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 font-bold text-xl text-emerald-700">
           <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-200">
@@ -64,24 +64,31 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
-          {isAuthenticated ? (
+          {isAuthenticated && user ? (
             <div className="relative" ref={dropdownRef}>
-              {/* Tombol Profil Circle */}
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="w-10 h-10 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center hover:bg-emerald-700 transition shadow-md shadow-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 cursor-pointer"
+                className="w-10 h-10 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center hover:bg-emerald-700 transition shadow-md shadow-emerald-200 overflow-hidden cursor-pointer border-2 border-emerald-100"
                 title={userName}
               >
-                {initial || <User size={20} />}
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt={userName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.target.onerror = null; e.target.src = ''; }}
+                  />
+                ) : (
+                  initial || <User size={20} />
+                )}
               </button>
 
-              {/* Menu Dropdown Logout */}
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
                   <div className="px-4 py-2.5 border-b border-gray-100">
                     <p className="text-sm font-semibold text-gray-800 truncate">{userName}</p>
                     <p className="text-xs text-emerald-600 font-medium capitalize mt-0.5">
-                      {user?.role ? String(user.role).toLowerCase() : 'Pengguna'}
+                      {user?.role ? String(user.role).toLowerCase().replace('_', ' ') : 'Pengguna'}
                     </p>
                   </div>
 

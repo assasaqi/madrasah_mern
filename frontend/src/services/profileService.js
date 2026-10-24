@@ -1,62 +1,40 @@
-import axios from 'axios';
-
-// Base URL Backend API
-const API_BASE_URL = 'http://localhost:5000/api';
-
-// Helper untuk mengambil Token Authorization dari LocalStorage
-const getAuthHeaders = (isMultipart = false) => {
-  const token = localStorage.getItem('token');
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(isMultipart && { 'Content-Type': 'multipart/form-data' }),
-    },
-  };
-};
+import api from './api';
 
 // ==========================================
 // 1. SERVICE ADMIN (PROTECTED ROUTES)
 // ==========================================
 
-// Fetch Data Akun Admin
+// Ambil profil admin
 export const getAdminProfile = async () => {
-  const response = await axios.get(`${API_BASE_URL}/admin/profile/me`, getAuthHeaders());
+  const response = await api.get('/admin/profile/me');
   return response.data;
 };
 
-// Update Data Akun Admin (Email & Foto WebP)
+// Update profil admin (mendukung upload file multipart/form-data)
 export const updateAdminProfile = async (formData) => {
-  const response = await axios.put(
-    `${API_BASE_URL}/admin/profile/me`,
-    formData,
-    getAuthHeaders(true)
-  );
+  const response = await api.put('/admin/profile/me', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return response.data;
 };
 
-// Ubah Password Admin
+// Ubah password admin
 export const changeAdminPassword = async (passwordData) => {
-  const response = await axios.put(
-    `${API_BASE_URL}/admin/profile/change-password`,
-    passwordData,
-    getAuthHeaders()
-  );
+  const response = await api.put('/admin/profile/change-password', passwordData);
   return response.data;
 };
 
-// Fetch Profil Sekolah untuk Panel Admin (Form Edit)
+// Ambil profil sekolah untuk formulir admin
 export const getAdminSchoolProfile = async () => {
-  const response = await axios.get(`${API_BASE_URL}/admin/profile/school`, getAuthHeaders());
+  const response = await api.get('/admin/profile/school');
   return response.data;
 };
 
-// Update Profil Sekolah (Logo, Banner, Identity, Visi/Misi)
+// Update profil sekolah (mendukung upload file multipart/form-data)
 export const updateAdminSchoolProfile = async (formData) => {
-  const response = await axios.put(
-    `${API_BASE_URL}/admin/profile/school`,
-    formData,
-    getAuthHeaders(true)
-  );
+  const response = await api.put('/admin/profile/school', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return response.data;
 };
 
@@ -64,8 +42,8 @@ export const updateAdminSchoolProfile = async (formData) => {
 // 2. SERVICE PUBLIC (TANPA AUTH / LOGIN)
 // ==========================================
 
-// Fetch Profil Sekolah untuk Halaman Depan Publik / Landing Page
+// Ambil profil sekolah untuk landing page publik
 export const getPublicSchoolProfile = async () => {
-  const response = await axios.get(`${API_BASE_URL}/public/profile/school`);
+  const response = await api.get('/public/profile/school');
   return response.data;
 };

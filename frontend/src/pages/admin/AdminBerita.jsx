@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText, Plus, Search, Trash2, Edit2,
-  Loader2, X, RefreshCw, AlertCircle, CheckCircle, Image as ImageIcon
+  Loader2, X, RefreshCw, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { beritaService } from '../../services/beritaService';
 
@@ -15,14 +15,9 @@ export default function AdminBerita() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  // State untuk Mode Edit
   const [editingItem, setEditingItem] = useState(null);
-
-  // State Notifikasi Modal (Khusus untuk error dari Backend)
   const [modalAlert, setModalAlert] = useState({ type: '', message: '' });
 
-  // State Form Berita
   const [formData, setFormData] = useState({
     judul: '',
     kategoriId: '',
@@ -32,11 +27,13 @@ export default function AdminBerita() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
+  // Ambil data berita dan kategori saat komponen pertama kali dimuat
   useEffect(() => {
     fetchBerita();
     fetchKategori();
   }, []);
 
+  // Memuat seluruh data berita dari server
   const fetchBerita = async () => {
     try {
       setLoading(true);
@@ -45,19 +42,20 @@ export default function AdminBerita() {
       setBeritaList(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Gagal memuat berita:', err);
-      const msg = err?.response?.data?.message || err?.message || 'Gagal terhubung ke server API.';
-      setErrorMsg(msg);
+      const serverMsg = err?.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
+      setErrorMsg(isTechError || !serverMsg ? 'Gagal terhubung ke layanan API server.' : serverMsg);
       setBeritaList([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Memuat daftar kategori berita dari server
   const fetchKategori = async () => {
     try {
       const data = await beritaService.getKategoriList();
       const list = Array.isArray(data) ? data : [];
-
       if (list.length === 0) {
         setKategoriList([
           { id: '1', nama: 'Pendidikan & Akademik' },
@@ -79,11 +77,10 @@ export default function AdminBerita() {
     }
   };
 
-  // Membuka Modal (Mode Tambah Baru atau Edit)
+  // Membuka modal formulir dalam mode tambah atau sunting
   const handleOpenModal = (item = null) => {
     setModalAlert({ type: '', message: '' });
     if (item) {
-      // Mode Edit
       setEditingItem(item);
       setFormData({
         judul: item.judul || item.title || '',
@@ -101,7 +98,6 @@ export default function AdminBerita() {
         setImagePreview(null);
       }
     } else {
-      // Mode Tambah Baru
       setEditingItem(null);
       setFormData({
         judul: '',
@@ -115,6 +111,7 @@ export default function AdminBerita() {
     setShowModal(true);
   };
 
+  // Menutup modal formulir dan mereset status masukan
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingItem(null);
@@ -124,6 +121,7 @@ export default function AdminBerita() {
     setModalAlert({ type: '', message: '' });
   };
 
+  // Memproses perubahan bidang teks formulir
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -133,6 +131,7 @@ export default function AdminBerita() {
     if (modalAlert.message) setModalAlert({ type: '', message: '' });
   };
 
+  // Memproses pemilihan berkas gambar dari input komputer
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -141,11 +140,11 @@ export default function AdminBerita() {
     }
   };
 
+  // Mengirim data formulir berita ke API backend
   const handleSubmit = async (e) => {
     e.preventDefault();
     setModalAlert({ type: '', message: '' });
 
-    // Validasi Frontend: Panjang Judul Maksimal 200 Karakter
     if (formData.judul.trim().length > 200) {
       setModalAlert({
         type: 'error',
@@ -156,7 +155,6 @@ export default function AdminBerita() {
 
     try {
       setSubmitting(true);
-
       const payload = {
         judul: formData.judul,
         konten: formData.konten,
@@ -167,11 +165,9 @@ export default function AdminBerita() {
       };
 
       if (editingItem) {
-        // Panggil endpoint update berita
         await beritaService.updateBerita(editingItem.id, payload);
         alert('Berita berhasil diperbarui!');
       } else {
-        // Panggil endpoint buat berita baru
         await beritaService.createBerita(payload);
         alert('Berita berhasil ditambahkan!');
       }
@@ -180,16 +176,18 @@ export default function AdminBerita() {
       fetchBerita();
     } catch (err) {
       console.error('Gagal menyimpan berita:', err);
-      const serverMessage = err?.response?.data?.message || err?.message || 'Gagal menyimpan berita. Periksa koneksi atau inputan Anda.';
+      const serverMsg = err?.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
       setModalAlert({
         type: 'error',
-        message: serverMessage
+        message: isTechError || !serverMsg ? 'Gagal menyimpan berita. Terjadi kendala sistem pada server.' : serverMsg
       });
     } finally {
       setSubmitting(false);
     }
   };
 
+  // Menghapus data berita berdasarkan ID
   const handleDelete = async (id) => {
     if (!window.confirm('Apakah Anda yakin ingin menghapus berita ini?')) return;
     try {
@@ -197,10 +195,13 @@ export default function AdminBerita() {
       setBeritaList((prev) => prev.filter((item) => item.id !== id));
     } catch (err) {
       console.error('Gagal menghapus berita:', err);
-      alert(err?.response?.data?.message || 'Gagal menghapus berita.');
+      const serverMsg = err?.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
+      alert(isTechError || !serverMsg ? 'Gagal menghapus berita. Kendala pada server.' : serverMsg);
     }
   };
 
+  // Menyaring data berita berdasarkan pencarian
   const filteredBerita = (Array.isArray(beritaList) ? beritaList : []).filter((item) => {
     const q = (searchQuery || '').toLowerCase().trim();
     if (!q) return true;
@@ -223,7 +224,6 @@ export default function AdminBerita() {
 
   return (
     <div className="space-y-6 font-sans text-gray-800">
-      {/* Header Halaman */}
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -250,7 +250,6 @@ export default function AdminBerita() {
         </div>
       </div>
 
-      {/* Banner Error Utama */}
       {errorMsg && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-between text-xs text-red-700">
           <div className="flex items-center gap-2">
@@ -263,7 +262,6 @@ export default function AdminBerita() {
         </div>
       )}
 
-      {/* Bar Pencarian */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
         <div className="relative w-full sm:w-96">
           <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -280,7 +278,6 @@ export default function AdminBerita() {
         </span>
       </div>
 
-      {/* Tabel Berita */}
       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
@@ -366,7 +363,6 @@ export default function AdminBerita() {
         </div>
       </div>
 
-      {/* Modal Form Buat / Edit Berita */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-2xl w-full rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -382,7 +378,6 @@ export default function AdminBerita() {
               </button>
             </div>
 
-            {/* Banner Alert Modal */}
             {modalAlert.message && (
               <div
                 className={`p-3.5 rounded-xl border text-xs font-semibold flex items-start gap-2.5 ${
@@ -464,7 +459,6 @@ export default function AdminBerita() {
                 </div>
               </div>
 
-              {/* Preview Gambar */}
               {imagePreview && (
                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
                   <div className="w-16 h-12 rounded-xl overflow-hidden bg-gray-200 border border-gray-200 shrink-0">

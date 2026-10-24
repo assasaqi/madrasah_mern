@@ -9,53 +9,31 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { publicService } from '../../services/publicService';
-import { pengumumanService } from '../../services/pengumumanService';
 
 // Base URL Backend untuk File Static Uploads
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const [combinedList, setCombinedList] = useState([]);
   const sliderRef = useRef(null);
 
-  // Indikator Ringkas
-  const stats = [
-    { label: 'Siswa Aktif', value: '850+' },
-    { label: 'Guru & Staf', value: '45' },
-    { label: 'Program Unggulan', value: '12' },
-    { label: 'Tahun Berdiri', value: '1998' },
-    { label: 'Akreditasi', value: 'A (Unggul)' }
-  ];
-
+  // Memuat data beranda saat komponen dipasang
   useEffect(() => {
     fetchHomeData();
   }, []);
 
+  // Memuat dan menggabungkan data berita serta pengumuman secara terpusat
   const fetchHomeData = async () => {
     try {
       setLoading(true);
+      const homeData = await publicService.getHomeData();
 
-      // 1. Fetch Berita Terbaru
-      let newsData = [];
-      try {
-        const resBerita = await publicService.getBerita();
-        newsData = resBerita?.data || resBerita || [];
-      } catch (err) {
-        console.warn('Gagal memuat berita:', err);
-      }
-
-      // 2. Fetch Pengumuman Terbaru
-      let pengumumanData = [];
-      try {
-        const resPengumuman = await pengumumanService.getAll();
-        pengumumanData = resPengumuman?.data || resPengumuman || [];
-      } catch (err) {
-        console.warn('Gagal memuat pengumuman:', err);
-      }
+      const rawNews = homeData?.latestNews || homeData?.berita || [];
+      const rawAnnouncements = homeData?.announcements || homeData?.pengumuman || [];
 
       // Format Data Berita
-      const formattedNews = (Array.isArray(newsData) ? newsData : []).map((item) => ({
+      const formattedNews = (Array.isArray(rawNews) ? rawNews : []).map((item) => ({
         ...item,
         type: 'berita',
         categoryName: item.kategori?.nama || 'Berita',
@@ -63,7 +41,7 @@ export default function Home() {
       }));
 
       // Format Data Pengumuman
-      const formattedPengumuman = (Array.isArray(pengumumanData) ? pengumumanData : []).map((item) => ({
+      const formattedPengumuman = (Array.isArray(rawAnnouncements) ? rawAnnouncements : []).map((item) => ({
         ...item,
         type: 'pengumuman',
         categoryName: 'Pengumuman',
@@ -85,7 +63,7 @@ export default function Home() {
     }
   };
 
-  // Helper Gambar
+  // Helper Pemformatan URL Gambar
   const getImageUrl = (item) => {
     if (item.type === 'pengumuman') {
       return 'https://images.unsplash.com/photo-1577563908411-5077b6dc7624?w=600&auto=format&fit=crop&q=80';
@@ -97,8 +75,8 @@ export default function Home() {
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       return imagePath;
     }
-    const cleanPath = imagePath.startsWith('/') ? imagePath : `/uploads/${imagePath}`;
-    return `${API_BASE_URL}${cleanPath}`;
+    const cleanPath = imagePath.replace(/^\/?(uploads\/)?/, '');
+    return `${API_BASE_URL}/uploads/${cleanPath}`;
   };
 
   // Fungsi Navigasi Slider Panah Kiri/Kanan
@@ -111,8 +89,7 @@ export default function Home() {
 
   return (
     <div className="space-y-8 pb-16 font-sans">
-
-      {/* 1. TOP BANNER HEADER (Sesuai Banner Kemenag di Gambar) */}
+      {/* Top Banner Header */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 rounded-2xl p-6 sm:p-8 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
           <div className="space-y-2 z-10 text-center md:text-left">
@@ -129,13 +106,13 @@ export default function Home() {
           <div className="flex items-center gap-3 shrink-0 z-10">
             <Link
               to="/register"
-              className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-emerald-950 font-bold text-xs sm:text-sm rounded-xl transition shadow"
+              className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-emerald-950 font-bold text-xs sm:text-sm rounded-xl transition shadow cursor-pointer"
             >
               Daftar PPDB
             </Link>
             <Link
               to="/profil"
-              className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm rounded-xl backdrop-blur-xs border border-white/20 transition"
+              className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm rounded-xl backdrop-blur-xs border border-white/20 transition cursor-pointer"
             >
               Profil Madrasah
             </Link>
@@ -143,24 +120,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 2. STATS & INDIKATOR BAR (Sesuai Baris Indeks Keagamaan) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white border border-gray-200 rounded-xl p-2 flex items-center overflow-x-auto gap-4 text-xs font-semibold scrollbar-none shadow-xs">
-          <div className="bg-emerald-800 text-white px-4 py-2 rounded-lg font-bold uppercase shrink-0">
-            STATISTIK MADRASAH
-          </div>
-          <div className="flex items-center gap-6 divide-x divide-gray-200 shrink-0">
-            {stats.map((stat, idx) => (
-              <div key={idx} className="pl-6 first:pl-2 flex items-center gap-1.5 whitespace-nowrap">
-                <span className="text-gray-500 font-medium">{stat.label}</span>
-                <span className="text-emerald-700 font-extrabold text-sm">{stat.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 3. POSTER VERTIKAL SLIDER (Sesuai Tampilan Poster Gambar 3) */}
+      {/* Poster Vertikal Slider */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -172,9 +132,7 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Container Carousel poster vertikal dengan Navigasi Panah Kiri-Kanan */}
         <div className="relative group">
-          {/* Tombol Panah Kiri */}
           <button
             onClick={() => scrollSlider('left')}
             className="absolute left-2 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg border border-gray-200 transition cursor-pointer"
@@ -183,14 +141,13 @@ export default function Home() {
             <ChevronLeft size={20} />
           </button>
 
-          {/* List Poster Card Horizontal Scroll */}
           <div
             ref={sliderRef}
             className="flex items-center gap-3 overflow-x-auto scroll-smooth pb-4 scrollbar-none snap-x snap-mandatory"
           >
             {loading ? (
               <div className="w-full flex justify-center py-12 text-emerald-600 text-xs gap-2">
-                <Loader2 className="animate-spin" size={18} /> Memuat poster berita...
+                <Loader2 className="animate-spin" size={18} /> Memuat konten...
               </div>
             ) : combinedList.length === 0 ? (
               <div className="w-full text-center py-12 text-gray-400 text-xs">Belum ada konten dipublikasikan.</div>
@@ -205,17 +162,18 @@ export default function Home() {
                     to={item.targetUrl}
                     className="shrink-0 w-36 sm:w-44 lg:w-48 h-64 sm:h-72 rounded-xl overflow-hidden relative group/card shadow-sm hover:shadow-xl transition-all duration-300 snap-start border border-gray-100"
                   >
-                    {/* Gambar Full Poster Vertikal */}
                     <img
                       src={getImageUrl(item)}
                       alt={title}
                       className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&auto=format&fit=crop&q=80';
+                      }}
                     />
 
-                    {/* Dark Overlay Gradient Bawah */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
-                    {/* Badge Tipe di Atas Kiri */}
                     <span
                       className={`absolute top-2.5 left-2.5 text-[10px] font-bold px-2 py-0.5 rounded-md text-white shadow-xs ${
                         isPengumuman ? 'bg-amber-600' : 'bg-emerald-600'
@@ -224,7 +182,6 @@ export default function Home() {
                       {item.categoryName}
                     </span>
 
-                    {/* Judul & Detail Teks di Bawah Poster */}
                     <div className="absolute bottom-0 inset-x-0 p-3 text-white space-y-1">
                       <h3 className="text-xs sm:text-sm font-bold line-clamp-2 leading-snug group-hover/card:text-emerald-300 transition-colors">
                         {title}
@@ -243,7 +200,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Tombol Panah Kanan */}
           <button
             onClick={() => scrollSlider('right')}
             className="absolute right-2 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg border border-gray-200 transition cursor-pointer"
@@ -254,7 +210,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 4. KEUNGGULAN MADRASAH */}
+      {/* Keunggulan Madrasah */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-sm space-y-4">
           <div>

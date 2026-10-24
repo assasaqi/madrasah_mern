@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Building2, MapPin, Globe, Image as ImageIcon, Save, CheckCircle2, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { getAdminSchoolProfile, updateAdminSchoolProfile } from '../../services/profileService';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function AdminPublicProfile() {
   const [profileData, setProfileData] = useState({
     namaSekolah: '',
@@ -26,11 +28,18 @@ export default function AdminPublicProfile() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
-  // Ambil data profil sekolah dari API backend saat komponen dimuat
+  // Memuat data profil sekolah saat komponen pertama kali dipasang
   useEffect(() => {
     fetchSchoolData();
   }, []);
 
+  // Format URL media berkas gambar berbasis environment variable
+  const formatImageUrl = (path) => {
+    if (!path) return null;
+    return path.startsWith('http') ? path : `${API_BASE_URL}/uploads/${path.replace(/^\/uploads\//, '')}`;
+  };
+
+  // Memuat data profil sekolah dari API backend
   const fetchSchoolData = async () => {
     try {
       setFetching(true);
@@ -38,7 +47,6 @@ export default function AdminPublicProfile() {
       if (res.success && res.data) {
         const d = res.data;
 
-        // Parse array misi jika tersimpan dalam bentuk string/JSON
         let parsedMisi = [''];
         if (Array.isArray(d.misi) && d.misi.length > 0) {
           parsedMisi = d.misi;
@@ -65,41 +73,46 @@ export default function AdminPublicProfile() {
           misi: parsedMisi
         });
 
-        if (d.logo) setLogoPreview(`http://localhost:5000/uploads/${d.logo}`);
-        if (d.banner) setBannerPreview(`http://localhost:5000/uploads/${d.banner}`);
+        if (d.logo) setLogoPreview(formatImageUrl(d.logo));
+        if (d.banner) setBannerPreview(formatImageUrl(d.banner));
       }
     } catch (err) {
       console.error('Error load school profile:', err);
+      const serverMsg = err.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
       setStatusMsg({
         type: 'error',
-        text: err.response?.data?.message || 'Gagal memuat profil sekolah dari server.'
+        text: isTechError || !serverMsg ? 'Gagal memuat profil sekolah dari server.' : serverMsg
       });
     } finally {
       setFetching(false);
     }
   };
 
+  // Memproses perubahan pada input teks profil
   const handleChange = (e) => {
     setProfileData({ ...profileData, [e.target.name]: e.target.value });
   };
 
-  // Handler Dynamic Misi
+  // Mengubah nilai poin misi berdasarkan indeks
   const handleMisiChange = (index, value) => {
     const updatedMisi = [...profileData.misi];
     updatedMisi[index] = value;
     setProfileData({ ...profileData, misi: updatedMisi });
   };
 
+  // Menambahkan baris poin misi baru
   const addMisi = () => {
     setProfileData({ ...profileData, misi: [...profileData.misi, ''] });
   };
 
+  // Menghapus baris poin misi berdasarkan indeks
   const removeMisi = (index) => {
     const updatedMisi = profileData.misi.filter((_, i) => i !== index);
     setProfileData({ ...profileData, misi: updatedMisi.length ? updatedMisi : [''] });
   };
 
-  // Handler File Upload
+  // Memproses berkas logo baru dan memperbarui pratinjau
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -108,6 +121,7 @@ export default function AdminPublicProfile() {
     }
   };
 
+  // Memproses berkas banner baru dan memperbarui pratinjau
   const handleBannerChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -116,6 +130,7 @@ export default function AdminPublicProfile() {
     }
   };
 
+  // Mengirimkan pembaruan data profil sekolah ke server
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -123,7 +138,6 @@ export default function AdminPublicProfile() {
     try {
       const formData = new FormData();
 
-      // Append text inputs
       Object.keys(profileData).forEach((key) => {
         if (key === 'misi') {
           const filteredMisi = profileData.misi.filter((m) => m.trim() !== '');
@@ -133,7 +147,6 @@ export default function AdminPublicProfile() {
         }
       });
 
-      // 🛑 CEK: Hanya append file media jika benar-benar bertipe File baru
       if (files.logo instanceof File) formData.append('logo', files.logo);
       if (files.banner instanceof File) formData.append('banner', files.banner);
 
@@ -144,16 +157,17 @@ export default function AdminPublicProfile() {
         text: res.message || 'Profil publik sekolah berhasil diperbarui!'
       });
 
-      // Reset state file agar submit berikutnya tidak mengirim ulang berkas yang sama
       setFiles({ logo: null, banner: null });
 
-      if (res.data?.logo) setLogoPreview(`http://localhost:5000/uploads/${res.data.logo}`);
-      if (res.data?.banner) setBannerPreview(`http://localhost:5000/uploads/${res.data.banner}`);
+      if (res.data?.logo) setLogoPreview(formatImageUrl(res.data.logo));
+      if (res.data?.banner) setBannerPreview(formatImageUrl(res.data.banner));
     } catch (err) {
       console.error('Error submit school profile:', err);
+      const serverMsg = err.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
       setStatusMsg({
         type: 'error',
-        text: err.response?.data?.message || 'Gagal menyimpan perubahan profil sekolah.'
+        text: isTechError || !serverMsg ? 'Gagal menyimpan perubahan profil sekolah.' : serverMsg
       });
     } finally {
       setLoading(false);
@@ -170,8 +184,7 @@ export default function AdminPublicProfile() {
   }
 
   return (
-    <div className="max-w-5xl space-y-6 pb-12">
-      {/* Header Card */}
+    <div className="max-w-5xl space-y-6 pb-12 font-sans text-gray-800">
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
         <h1 className="text-xl font-bold text-gray-900">Kelola Profil Sekolah (Website Publik)</h1>
         <p className="text-xs text-gray-500 mt-1">
@@ -191,7 +204,6 @@ export default function AdminPublicProfile() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Section 1: Logo & Media */}
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
             <ImageIcon className="text-emerald-600" size={20} />
@@ -199,7 +211,6 @@ export default function AdminPublicProfile() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Logo Upload */}
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-2">Logo Sekolah</label>
               <div className="flex items-center gap-4">
@@ -220,7 +231,6 @@ export default function AdminPublicProfile() {
               </div>
             </div>
 
-            {/* Banner Upload */}
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-2">Banner / Foto Gedung</label>
               <div className="flex items-center gap-4">
@@ -243,7 +253,6 @@ export default function AdminPublicProfile() {
           </div>
         </div>
 
-        {/* Section 2: Informasi Dasar */}
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
             <Building2 className="text-emerald-600" size={20} />
@@ -312,7 +321,6 @@ export default function AdminPublicProfile() {
           </div>
         </div>
 
-        {/* Section 3: Kontak & Alamat */}
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
             <MapPin className="text-emerald-600" size={20} />
@@ -364,7 +372,6 @@ export default function AdminPublicProfile() {
           </div>
         </div>
 
-        {/* Section 4: Visi & Misi */}
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
             <Globe className="text-emerald-600" size={20} />
@@ -418,7 +425,6 @@ export default function AdminPublicProfile() {
           </div>
         </div>
 
-        {/* Submit Button */}
         <div className="flex justify-end pt-2">
           <button
             type="submit"

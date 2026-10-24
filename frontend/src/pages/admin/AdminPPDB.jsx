@@ -19,6 +19,8 @@ import {
 import api from '../../services/api';
 import { ppdbService } from '../../services/ppdbService';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function AdminPPDB({ hideHeader = false }) {
   const navigate = useNavigate();
   const [pendaftarList, setPendaftarList] = useState([]);
@@ -30,10 +32,12 @@ export default function AdminPPDB({ hideHeader = false }) {
   const [catatanVerifikator, setCatatanVerifikator] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Ambil data pendaftar saat komponen dimuat
   useEffect(() => {
     fetchPendaftar();
   }, []);
 
+  // Memuat seluruh data pendaftar PPDB dari API backend
   const fetchPendaftar = async () => {
     try {
       setLoading(true);
@@ -66,14 +70,16 @@ export default function AdminPPDB({ hideHeader = false }) {
       setPendaftarList(rawList);
     } catch (err) {
       console.error('Gagal memuat data pendaftar:', err);
-      const message = err?.response?.data?.message || err?.message || 'Gagal terhubung ke server API.';
-      setErrorMsg(message);
+      const serverMsg = err?.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
+      setErrorMsg(isTechError || !serverMsg ? 'Gagal terhubung ke layanan server PPDB.' : serverMsg);
       setPendaftarList([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Memperbarui status kelulusan dan catatan verifikasi pendaftar
   const handleUpdateStatus = async (id, newStatus) => {
     try {
       setActionLoading(true);
@@ -93,12 +99,15 @@ export default function AdminPPDB({ hideHeader = false }) {
       setCatatanVerifikator('');
     } catch (err) {
       console.error('Gagal memperbarui status:', err);
-      alert(err?.response?.data?.message || 'Gagal memperbarui status pendaftaran.');
+      const serverMsg = err?.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
+      alert(isTechError || !serverMsg ? 'Gagal memperbarui status. Terjadi kendala sistem pada server.' : serverMsg);
     } finally {
       setActionLoading(false);
     }
   };
 
+  // Mengambil nilai atribut objek secara bersarang dengan fallback
   const getField = (item, paths, fallback = '-') => {
     for (const path of paths) {
       const keys = path.split('.');
@@ -113,11 +122,13 @@ export default function AdminPPDB({ hideHeader = false }) {
     return fallback;
   };
 
+  // Memformat URL berkas dokumen secara dinamis
   const formatFileUrl = (path) => {
     if (!path || path === '#') return '#';
-    return path.startsWith('http') ? path : `http://localhost:5000/uploads/${path}`;
+    return path.startsWith('http') ? path : `${API_BASE_URL}/uploads/${path.replace(/^\/uploads\//, '')}`;
   };
 
+  // Menyaring daftar pendaftar berdasarkan pencarian dan filter status
   const filteredPendaftar = (Array.isArray(pendaftarList) ? pendaftarList : []).filter((item) => {
     const q = (searchQuery || '').toLowerCase().trim();
     const itemStatus = String(item.status || 'DITINJAU').toUpperCase();
@@ -135,7 +146,7 @@ export default function AdminPPDB({ hideHeader = false }) {
     return nama.includes(q) || noPendaftaran.includes(q) || asalSekolah.includes(q);
   });
 
-  // Hitung statistik
+  // Menghitung statistik pendaftar berdasarkan status
   const stats = {
     total: pendaftarList.length,
     ditinjau: pendaftarList.filter(i => String(i.status || 'DITINJAU').toUpperCase() === 'DITINJAU').length,
@@ -144,6 +155,7 @@ export default function AdminPPDB({ hideHeader = false }) {
     ditolak: pendaftarList.filter(i => String(i.status).toUpperCase() === 'TIDAK_LULUS').length,
   };
 
+  // Rendisi badge elemen UI berdasarkan status pendaftaran
   const getStatusBadge = (status) => {
     const s = String(status || '').toUpperCase();
     switch (s) {
@@ -209,6 +221,18 @@ export default function AdminPPDB({ hideHeader = false }) {
             </button>
           </div>
         </header>
+      )}
+
+      {errorMsg && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-between text-xs text-red-700">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} />
+            <span><strong>Gagal memuat data:</strong> {errorMsg}</span>
+          </div>
+          <button onClick={fetchPendaftar} className="underline font-bold hover:text-red-900 cursor-pointer">
+            Coba Lagi
+          </button>
+        </div>
       )}
 
       {/* Ringkasan Kartu Statistik */}
@@ -344,8 +368,8 @@ export default function AdminPPDB({ hideHeader = false }) {
 
       {/* Modal Verifikasi & Penetapan Status */}
       {selectedPendaftar && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white max-w-2xl w-full rounded-3xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl animate-fadeIn">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-2xl w-full rounded-3xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between border-b pb-4">
               <div>
                 <h3 className="text-base font-bold text-gray-900">Verifikasi & Penetapan Status Kelulusan</h3>
@@ -448,7 +472,6 @@ export default function AdminPPDB({ hideHeader = false }) {
                 </div>
               </div>
 
-              {/* Input Catatan Verifikator */}
               <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">
                   Catatan Verifikator (Opsional / Alasan Penolakan):

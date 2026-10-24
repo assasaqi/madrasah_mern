@@ -20,14 +20,14 @@ exports.createBerita = async (req, res, next) => {
     const { judul, konten, kategoriId } = req.body;
     const slug = judul.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
-    const gambarUrl = req.file ? req.file.fileUrl : null;
+    const gambar = req.file ? req.file.filename : null;
 
     const berita = await prisma.berita.create({
       data: {
         judul,
         slug: `${slug}-${Date.now()}`,
         konten,
-        gambarUrl,
+        gambar,
         kategoriId,
         authorId: req.user.id,
       },

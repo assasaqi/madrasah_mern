@@ -10,16 +10,18 @@ export default function Register() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'CALON_PENDAFTAR', // Default role
+    role: 'CALON_PENDAFTAR',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Handle perubahan nilai bidang formulir
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Submit pendaftaran pengguna baru dan sanitasi pesan error
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -27,26 +29,22 @@ export default function Register() {
     const namaClean = formData.namaLengkap.trim();
     const emailClean = formData.email.trim().toLowerCase();
 
-    // Validasi Nama Lengkap
     if (namaClean.length < 3) {
       setError('Nama lengkap minimal 3 karakter.');
       return;
     }
 
-    // Validasi Format Email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailClean)) {
       setError('Format alamat email tidak valid.');
       return;
     }
 
-    // Validasi Panjang Kata Sandi
     if (formData.password.length < 6) {
       setError('Kata sandi minimal 6 karakter.');
       return;
     }
 
-    // Validasi Konfirmasi Kata Sandi
     if (formData.password !== formData.confirmPassword) {
       setError('Konfirmasi kata sandi tidak sesuai.');
       return;
@@ -58,20 +56,33 @@ export default function Register() {
         nama: namaClean,
         email: emailClean,
         password: formData.password,
-        role: formData.role, // Dinamis sesuai pilihan dropdown
+        role: formData.role,
       });
 
-      alert(`Pendaftaran akun dengan role ${formData.role} berhasil! Silakan masuk.`);
+      alert(`Pendaftaran akun berhasil! Silakan masuk.`);
       navigate('/login');
     } catch (err) {
-      setError(err.response?.data?.message || 'Gagal mendaftar. Silakan coba lagi.');
+      console.error('Register error:', err);
+      const serverMessage = err.response?.data?.message;
+      const isTechnicalError =
+        typeof serverMessage === 'string' &&
+        (serverMessage.includes('prisma') ||
+          serverMessage.includes('Database error') ||
+          serverMessage.includes('invocation') ||
+          serverMessage.includes('pool timeout'));
+
+      setError(
+        isTechnicalError || !serverMessage
+          ? 'Gagal mendaftar. Terjadi kendala sistem, silakan coba lagi beberapa saat lagi.'
+          : serverMessage
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-emerald-50/40 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-emerald-50/40 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-200 mb-4">
           <School size={36} />
@@ -92,7 +103,6 @@ export default function Register() {
           )}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Pilihan Role / Peran */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Peran Akun (Role)</label>
               <div className="relative rounded-xl shadow-sm">

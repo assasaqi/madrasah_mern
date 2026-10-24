@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { User, Lock, Upload, Save, CheckCircle2, AlertCircle } from 'lucide-react';
 import { getAdminProfile, updateAdminProfile, changeAdminPassword } from '../../services/profileService';
+import { AuthContext } from '../../context/AuthContext';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function AdminProfile() {
+  const { user, login: setAuthContext } = useContext(AuthContext);
+
   const [profile, setProfile] = useState({
     email: '',
     foto: null
@@ -19,15 +24,18 @@ export default function AdminProfile() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
-  // Ambil data profil admin dari API backend saat komponen dimuat
+  // Memuat data profil admin dari API saat komponen pertama kali dimuat
   useEffect(() => {
     fetchProfileData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Memuat data profil admin dari API backend
   const fetchProfileData = async () => {
     try {
       setFetching(true);
       const res = await getAdminProfile();
+
       if (res.success && res.data) {
         setProfile({
           email: res.data.email || '',
@@ -35,26 +43,25 @@ export default function AdminProfile() {
         });
 
         if (res.data.foto) {
-          setPreviewFoto(`http://localhost:5000/uploads/${res.data.foto}`);
+          setPreviewFoto(`${API_BASE_URL}/uploads/${res.data.foto.replace(/^\/uploads\//, '')}`);
         }
 
-        // Update localStorage awal jika ada perbedaan
-        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-        const updatedUser = { ...storedUser, ...res.data };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        window.dispatchEvent(new Event('storage'));
+        setAuthContext({ ...user, ...res.data });
       }
     } catch (err) {
       console.error('Gagal mengambil data profil:', err);
+      const serverMsg = err.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
       setStatusMsg({
         type: 'error',
-        text: err.response?.data?.message || 'Gagal memuat data profil admin.'
+        text: isTechError || !serverMsg ? 'Gagal memuat data profil admin. Terjadi kendala sistem.' : serverMsg
       });
     } finally {
       setFetching(false);
     }
   };
 
+  // Memproses unggahan foto profil dan menampilkan pratinjau
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -63,6 +70,7 @@ export default function AdminProfile() {
     }
   };
 
+  // Mengirim pembaruan data profil ke server dan memperbarui state global
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -70,44 +78,30 @@ export default function AdminProfile() {
     try {
       const formData = new FormData();
       if (profile.email) formData.append('email', profile.email);
-
-      // 🛑 CEK: Hanya append foto ke FormData jika user memilih berkas File baru
-      if (profile.foto instanceof File) {
-        formData.append('foto', profile.foto);
-      }
+      if (profile.foto instanceof File) formData.append('foto', profile.foto);
 
       const res = await updateAdminProfile(formData);
+
       setStatusMsg({
         type: 'success',
         text: res.message || 'Profil berhasil diperbarui!'
       });
 
-      // Reset state foto ke null agar submit berikutnya tidak mengirim ulang file yang sama
       setProfile((prev) => ({ ...prev, foto: null }));
 
-      // 1. Perbarui foto preview dari respon backend jika ada
       if (res.data?.foto) {
-        setPreviewFoto(`http://localhost:5000/uploads/${res.data.foto}`);
+        setPreviewFoto(`${API_BASE_URL}/uploads/${res.data.foto.replace(/^\/uploads\//, '')}`);
       }
 
-      // 2. SINKRONISASI KE LOCALSTORAGE & EVENT STORAGE
-      const existingUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const updatedUserData = {
-        ...existingUser,
-        ...(res.data || {}),
-        email: profile.email || existingUser.email
-      };
-
-      localStorage.setItem('user', JSON.stringify(updatedUserData));
-
-      // Picu event storage agar Dashboard.jsx merender ulang foto di header
-      window.dispatchEvent(new Event('storage'));
-
+      const updatedUser = { ...user, ...(res.data || {}), email: profile.email || user?.email };
+      setAuthContext(updatedUser);
     } catch (err) {
       console.error('Error save profile:', err);
+      const serverMsg = err.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
       setStatusMsg({
         type: 'error',
-        text: err.response?.data?.message || 'Gagal memperbarui profil.'
+        text: isTechError || !serverMsg ? 'Gagal memperbarui profil. Terjadi kendala pada server.' : serverMsg
       });
     } finally {
       setLoading(false);
@@ -115,6 +109,7 @@ export default function AdminProfile() {
     }
   };
 
+  // Mengubah kata sandi akun admin setelah validasi input
   const handleSavePassword = async (e) => {
     e.preventDefault();
 
@@ -144,9 +139,11 @@ export default function AdminProfile() {
       setPasswordData({ passwordLama: '', passwordBaru: '', konfirmasiPassword: '' });
     } catch (err) {
       console.error('Error change password:', err);
+      const serverMsg = err.response?.data?.message;
+      const isTechError = typeof serverMsg === 'string' && (serverMsg.includes('prisma') || serverMsg.includes('pool timeout') || serverMsg.includes('invocation'));
       setStatusMsg({
         type: 'error',
-        text: err.response?.data?.message || 'Gagal mengubah password.'
+        text: isTechError || !serverMsg ? 'Gagal mengubah password. Terjadi kendala pada server.' : serverMsg
       });
     } finally {
       setLoading(false);
@@ -163,7 +160,7 @@ export default function AdminProfile() {
   }
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl space-y-6 font-sans text-gray-800">
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
         <h1 className="text-xl font-bold text-gray-900">Pengaturan Profil & Keamanan</h1>
         <p className="text-xs text-gray-500 mt-1">

@@ -260,6 +260,7 @@ exports.createPengumuman = async (req, res, next) => {
         judul: judul.trim(),
         slug,
         konten,
+        fileUrl: req.file ? req.file.filename : null,
         isPublished: isPublished === 'true' || isPublished === true
       }
     });
@@ -296,12 +297,21 @@ exports.updatePengumuman = async (req, res, next) => {
       }
     }
 
+        let fileUrl = existingPengumuman.fileUrl;
+    if (req.file) {
+      if (existingPengumuman.fileUrl) {
+        deleteFile(existingPengumuman.fileUrl);
+      }
+      fileUrl = req.file.filename;
+    }
+
     const updatedPengumuman = await prisma.pengumuman.update({
       where: { id: pengumumanId },
       data: {
         ...(judul && { judul: judul.trim() }),
         ...(slug && { slug }),
         ...(konten && { konten }),
+        fileUrl,
         ...(isPublished !== undefined && { isPublished: isPublished === 'true' || isPublished === true })
       }
     });
@@ -318,6 +328,15 @@ exports.deletePengumuman = async (req, res, next) => {
   try {
     const { id } = req.params;
     const pengumumanId = !isNaN(id) && Number.isInteger(Number(id)) ? parseInt(id, 10) : String(id);
+
+    const existingPengumuman = await prisma.pengumuman.findUnique({ where: { id: pengumumanId } });
+    if (!existingPengumuman) {
+      return res.status(404).json({ success: false, message: 'Pengumuman tidak ditemukan' });
+    }
+
+    if (existingPengumuman.fileUrl) {
+      deleteFile(existingPengumuman.fileUrl);
+    }
 
     await prisma.pengumuman.delete({ where: { id: pengumumanId } });
     res.json({ success: true, message: 'Pengumuman berhasil dihapus' });
@@ -356,8 +375,14 @@ exports.getPublicPengumumanBySlug = async (req, res, next) => {
   try {
     const { slug } = req.params;
 
-    const pengumuman = await prisma.pengumuman.findUnique({
-      where: { slug }
+    const pengumuman = await prisma.pengumuman.findFirst({
+      where: {
+        isPublished: true,
+        OR: [
+          { slug: slug },
+          { id: slug }
+        ]
+      }
     });
 
     if (!pengumuman || !pengumuman.isPublished) {

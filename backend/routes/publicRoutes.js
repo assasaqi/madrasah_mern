@@ -7,7 +7,9 @@ router.get('/home', publicController.getHomeData);
 router.get('/berita', publicController.getBerita);
 router.get('/berita/:id', publicController.getBeritaDetail);
 router.get('/pengumuman', publicController.getPengumuman);
-router.get('/kategori', publicController.getKategori); // <-- Pastikan route ini ada
-
+router.get('/pengumuman/:id', publicController.getPengumumanDetail);
+router.get('/kategori', publicController.getKategori);
+router.get('/galeri', publicController.getGaleri);
+router.post('/kontak', publicController.submitKontak);
 
 module.exports = router;
