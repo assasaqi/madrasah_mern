@@ -1,11 +1,12 @@
-// Class kustom untuk menangani operational error
-export class AppError extends Error {
+// Membentuk struktur kustom error berbasis HTTP status code
+class AppError extends Error {
   constructor(message, statusCode) {
     super(message);
     this.statusCode = statusCode;
     this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
     this.isOperational = true;
-
     Error.captureStackTrace(this, this.constructor);
   }
 }
+
+module.exports = AppError;

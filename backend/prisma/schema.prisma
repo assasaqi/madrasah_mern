@@ -6,10 +6,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// ==========================================
-// ENUMS
-// ==========================================
-
 enum Role {
   ADMIN
   GURU
@@ -58,21 +54,16 @@ enum PredikatTahfidz {
   MAQBUL
 }
 
-// ==========================================
-// MODUL AUTENTIKASI & USER
-// ==========================================
-
 model User {
-  id          String   @id @default(uuid())
-  email       String   @unique
-  password    String
-  role        Role     @default(CALON_PENDAFTAR)
-  foto        String?  // URL / Path Foto Profil Admin/User
-  isVerified  Boolean  @default(false)
-  emailToken  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  id           String           @id @default(uuid())
+  email        String           @unique
+  password     String
+  role         Role             @default(CALON_PENDAFTAR)
+  foto         String?
+  isVerified   Boolean          @default(false)
+  emailToken   String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
   guruProfile  Guru?
   siswaProfile Siswa?
   ortuProfile  OrangTua?
@@ -81,10 +72,6 @@ model User {
 
   @@map("users")
 }
-
-// ==========================================
-// MODUL CMS PUBLIK & PROFIL SEKOLAH
-// ==========================================
 
 model ProfilSekolah {
   id          String   @id @default(uuid())
@@ -95,18 +82,13 @@ model ProfilSekolah {
   deskripsi   String?  @db.Text
   logo        String?
   banner      String?
-
-  // Kontak & Alamat
   alamat      String?  @db.Text
   email       String?
   telepon     String?
   whatsapp    String?
   mapsUrl     String?  @db.Text
-
-  // Visi & Misi
   visi        String?  @db.Text
-  misi        Json?    // Array string untuk poin-poin misi
-
+  misi        Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -175,10 +157,6 @@ model PesanKontak {
   @@map("pesanKontak")
 }
 
-// ==========================================
-// MODUL PPDB
-// ==========================================
-
 model PendaftaranPPDB {
   id               String            @id @default(uuid())
   nomorPendaftaran String            @unique
@@ -188,7 +166,6 @@ model PendaftaranPPDB {
   gelombang        String            @default("Gelombang 1")
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-
   biodata          BiodataSiswaPPDB?
   orangTua         DataOrangTuaPPDB?
   dokumen          DokumenPPDB[]
@@ -240,10 +217,6 @@ model DokumenPPDB {
   @@map("dokumenPpdb")
 }
 
-// ==========================================
-// MODUL AKADEMIK & KESANTRIAN
-// ==========================================
-
 model TahunAjaran {
   id       String   @id @default(uuid())
   tahun    String
@@ -263,7 +236,6 @@ model Guru {
   namaLengkap  String
   noHp         String?
   jenisKelamin JenisKelamin
-
   kelasWali    Kelas[]
   tahfidzInput Tahfidz[]
 
@@ -278,10 +250,9 @@ model Kelas {
   tahunAjaran   TahunAjaran @relation(fields: [tahunAjaranId], references: [id])
   waliKelasId   String?
   waliKelas     Guru?       @relation(fields: [waliKelasId], references: [id])
-
-  siswa   Siswa[]
-  nilai   Nilai[]
-  absensi Absensi[]
+  siswa         Siswa[]
+  nilai         Nilai[]
+  absensi       Absensi[]
 
   @@map("kelas")
 }
@@ -310,10 +281,9 @@ model Siswa {
   kelas        Kelas        @relation(fields: [kelasId], references: [id])
   orangTuaId   String?
   orangTua     OrangTua?    @relation(fields: [orangTuaId], references: [id])
-
-  nilai   Nilai[]
-  absensi Absensi[]
-  tahfidz Tahfidz[]
+  nilai        Nilai[]
+  absensi      Absensi[]
+  tahfidz      Tahfidz[]
 
   @@map("siswa")
 }

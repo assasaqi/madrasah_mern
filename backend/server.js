@@ -3,9 +3,10 @@ const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const swaggerJsdoc = require('swagger-jsdoc');
 const env = require('./config/env');
 
-// Import Router
 const authRoutes = require('./routes/authRoutes');
 const cmsRoutes = require('./routes/cmsRoutes');
 const ppdbRoutes = require('./routes/ppdbRoutes');
@@ -22,26 +23,36 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
 
-// Konfigurasi Keamanan & Middleware Parser
+// Inisialisasi middleware keamanan dan parser HTTP request
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cookieParser());
 app.use(cors({
-  origin: env.FRONTEND_URL,
+  origin: env.FRONTEND_URL || env.CLIENT_URL,
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static Folder & Rate Limiter
+// Pengaturan direktori statis dan pembatas laju request API
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api', apiLimiter);
 
-// Endpoint Root
+// Konfigurasi dokumentasi Swagger OpenAPI
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: { title: 'Madrasah MERN API', version: '1.0.0', description: 'Dokumentasi REST API Sistem Informasi Madrasah' }
+  },
+  apis: ['./routes/*.js']
+};
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerJsdoc(swaggerOptions)));
+
+// Endpoint utama pemeriksa status server
 app.get('/', (req, res) => {
   res.json({ message: 'API Sistem Informasi & Web Profil Madrasah Aktif 🚀' });
 });
 
-// Register Rute API
+// Pendaftaran rute API aplikasi
 app.use('/api/auth', authRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/public/cms', publicCmsRoutes);
@@ -55,10 +66,19 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin/cms', adminCmsRoutes);
 app.use('/api/admin/profile', adminProfileRoutes);
 
-// Global Error Handler
+// Penanganan rute 404 yang tidak ditemukan kompatibel dengan Express 5
+app.use((req, res) => {
+  res.status(404).json({ status: 'fail', message: `Rute ${req.originalUrl} tidak ditemukan` });
+});
+
+// Penanganan eror global aplikasi
 app.use(errorHandler);
 
-// Jalankan Server
-app.listen(env.PORT, () => {
-  console.log(`Server berjalan di port ${env.PORT}`);
-});
+// Menjalankan server Express pada port terkonfigurasi jika bukan lingkungan pengujian
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(env.PORT, () => {
+    console.log(`Server berjalan di port ${env.PORT}`);
+  });
+}
+
+module.exports = app;
